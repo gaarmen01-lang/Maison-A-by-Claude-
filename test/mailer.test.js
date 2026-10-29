@@ -36,7 +36,7 @@ test('e-mail de confirmation en français', () => {
   assert.match(mail.html, /&lt;script&gt;/);
   assert.match(mail.ics, /DTSTART:20261105T090000Z/);
   assert.match(mail.ics, /DTEND:20261105T101500Z/);
-  assert.match(mail.ics, /UID:11111111-2222-3333-4444-555555555555@maison1-studio\.be/);
+  assert.match(mail.ics, /UID:11111111-2222-3333-4444-555555555555@maisona-studio\.be/);
 });
 
 test('e-mail de confirmation en néerlandais', () => {
