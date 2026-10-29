@@ -6,6 +6,7 @@
   const form = document.getElementById('booking-form');
   const serviceSelect = document.getElementById('service');
   const daysBox = document.getElementById('days');
+  const staffBox = document.getElementById('staff');
   const slotsBox = document.getElementById('slots');
   const summary = document.getElementById('summary');
   const errorBox = document.getElementById('form-error');
@@ -13,6 +14,7 @@
   const success = document.getElementById('booking-success');
 
   let salon = null;
+  let selectedStylist = 'any';
   let selectedDate = null;
   let selectedTime = null;
   let slotsRequest = 0;
@@ -78,6 +80,38 @@
     }));
   }
 
+  function stylistById(id) {
+    return salon && salon.staff.find(s => s.id === id);
+  }
+
+  // Choix de la coiffeuse : « Sans préférence » ou l'une des employées.
+  function renderStaff() {
+    const options = [
+      { id: 'any', initial: '✦', name: t('book.anyStylist'), title: t('book.anyStylistDesc') },
+      ...salon.staff.map(s => ({
+        id: s.id, initial: s.name[I18n.lang].trim().charAt(0), name: s.name[I18n.lang], title: s.title[I18n.lang]
+      }))
+    ];
+    staffBox.replaceChildren(...options.map(o => {
+      const btn = el('button', {
+        type: 'button', class: 'stylist-card', role: 'radio', 'aria-checked': String(o.id === selectedStylist)
+      }, [
+        el('span', { class: 'stylist-avatar', 'aria-hidden': 'true', text: o.initial }),
+        el('span', { class: 'stylist-text' }, [
+          el('span', { class: 'stylist-name', text: o.name }),
+          el('span', { class: 'stylist-title', text: o.title })
+        ])
+      ]);
+      btn.addEventListener('click', () => {
+        staffBox.querySelectorAll('.stylist-card').forEach(b => b.setAttribute('aria-checked', 'false'));
+        btn.setAttribute('aria-checked', 'true');
+        selectedStylist = o.id;
+        onSelectionChange();
+      });
+      return btn;
+    }));
+  }
+
   function renderSummary() {
     const s = serviceById(serviceSelect.value);
     if (!s || !selectedDate || !selectedTime) {
@@ -88,7 +122,10 @@
     summary.replaceChildren(
       el('p', { class: 'label', text: t('book.summary') }),
       el('p', { class: 'summary-main', text: `${s.name[I18n.lang]} — ${I18n.formatPrice(s.price)}` }),
-      el('p', { text: `${I18n.formatDate(selectedDate)} · ${selectedTime} (${s.duration} ${t('min')})` })
+      el('p', { text: `${I18n.formatDate(selectedDate)} · ${selectedTime} (${s.duration} ${t('min')})` }),
+      el('p', { text: stylistById(selectedStylist)
+        ? t('book.with', { name: stylistById(selectedStylist).name[I18n.lang] })
+        : t('book.anyStylist') })
     );
   }
 
@@ -142,7 +179,8 @@
     slotMessage('book.loading');
     const request = ++slotsRequest;
     try {
-      const res = await fetch(`/api/slots?date=${encodeURIComponent(date)}&service=${encodeURIComponent(service)}`);
+      const res = await fetch(`/api/slots?date=${encodeURIComponent(date)}&service=${encodeURIComponent(service)}` +
+        `&stylist=${encodeURIComponent(selectedStylist)}`);
       const data = await res.json();
       if (request !== slotsRequest) return;
       const free = (data.slots || []).filter(s => s.available);
@@ -159,7 +197,7 @@
           renderSummary();
           // Sur téléphone, on amène directement la cliente à l'étape suivante.
           if (window.matchMedia('(max-width: 720px)').matches) {
-            form.querySelectorAll('fieldset')[2].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('step-contact').scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         });
         return btn;
@@ -192,6 +230,7 @@
     slotsBox.classList.remove('invalid');
     daysBox.classList.remove('invalid');
     const data = Object.fromEntries(new FormData(form));
+    data.stylist = selectedStylist;
     data.date = selectedDate || '';
     data.time = selectedTime || '';
     data.lang = I18n.lang;
@@ -217,6 +256,7 @@
       document.getElementById('success-text').textContent = t('book.success.text', {
         date: I18n.formatDate(body.date),
         time: body.time,
+        stylist: body.stylistName ? body.stylistName[I18n.lang] : '',
         service: body.serviceName[I18n.lang]
       });
       form.hidden = true;
@@ -233,6 +273,8 @@
   document.getElementById('book-again').addEventListener('click', () => {
     form.reset();
     selectedDate = null;
+    selectedStylist = 'any';
+    renderStaff();
     renderDays();
     form.hidden = false;
     success.hidden = true;
@@ -246,6 +288,7 @@
     if (!salon) return;
     renderServices();
     renderHours();
+    renderStaff();
     renderDays();
     renderSummary();
     if (!selectedTime) loadSlots();

@@ -134,9 +134,36 @@
     loadAgenda();
   }
 
+  function stylistName(id) {
+    const s = salon.staff.find(x => x.id === id);
+    return s ? s.name[I18n.lang] : '—';
+  }
+
+  function renderStylistOptions() {
+    const filter = $('agenda-stylist');
+    const currentFilter = filter.value;
+    filter.replaceChildren(
+      el('option', { value: '', text: t('admin.allStylists') }),
+      ...salon.staff.map(s => el('option', { value: s.id, text: s.name[I18n.lang] }))
+    );
+    filter.value = currentFilter;
+
+    const select = $('admin-stylist');
+    const current = select.value;
+    select.replaceChildren(
+      el('option', { value: 'any', text: t('admin.autoStylist') }),
+      ...salon.staff.map(s => el('option', { value: s.id, text: s.name[I18n.lang] }))
+    );
+    if (current) select.value = current;
+  }
+
+  $('agenda-stylist').addEventListener('change', () => loadAgenda());
+
   async function loadAgenda() {
     $('agenda-title').textContent = I18n.formatDate(agendaDate);
-    const { appointments } = await api(`/api/admin/appointments?from=${agendaDate}&to=${agendaDate}`);
+    const filter = $('agenda-stylist').value;
+    const { appointments: all } = await api(`/api/admin/appointments?from=${agendaDate}&to=${agendaDate}`);
+    const appointments = filter ? all.filter(a => a.stylist === filter) : all;
     const confirmed = appointments.filter(a => a.status === 'confirmed');
     $('kpi-day-revenue').textContent = I18n.formatPrice(confirmed.reduce((s, a) => s + a.price, 0));
     $('kpi-day-count').textContent = confirmed.length;
@@ -144,7 +171,7 @@
 
     const body = $('agenda-body');
     if (!appointments.length) {
-      body.replaceChildren(el('tr', {}, [el('td', { colspan: '7', class: 'empty', text: t('admin.noAppointments') })]));
+      body.replaceChildren(el('tr', {}, [el('td', { colspan: '8', class: 'empty', text: t('admin.noAppointments') })]));
       return;
     }
     body.replaceChildren(...appointments.map(a => {
@@ -169,9 +196,13 @@
       return el('tr', { class: cancelled ? 'is-cancelled' : '' }, [
         el('td', { class: 'time' }, [el('strong', { text: a.time }), el('small', { text: '→ ' + end })]),
         client,
-        el('td', { class: 'service', text: a.serviceName[I18n.lang] }),
+        el('td', { class: 'appt-service', text: a.serviceName[I18n.lang] }),
+        el('td', { class: 'stylist' }, [
+          stylistName(a.stylist),
+          ...(a.source === 'online' && a.stylistRequested ? [el('span', { class: 'tag', text: t('admin.requested') })] : [])
+        ]),
         contact,
-        el('td', { class: 'num price', text: I18n.formatPrice(a.price) }),
+        el('td', { class: 'num appt-price', text: I18n.formatPrice(a.price) }),
         el('td', { class: 'status-cell' }, [el('span', { class: 'status status-' + a.status, text: t('admin.status.' + a.status) })]),
         el('td', { class: 'actions' }, [
           cancelled
@@ -206,7 +237,7 @@
       const created = await api('/api/admin/appointments', { method: 'POST', body: data });
       form.reset();
       form.date.value = created.date;
-      $('admin-ok').textContent = `${t('admin.created')} ${I18n.formatDate(created.date)} · ${created.time} — ${created.firstName} ${created.lastName}`;
+      $('admin-ok').textContent = `${t('admin.created')} ${I18n.formatDate(created.date)} · ${created.time} — ${created.firstName} ${created.lastName} · ${stylistName(created.stylist)}`;
       $('admin-ok').hidden = false;
       agendaDate = created.date;
       $('agenda-date').value = created.date;
@@ -282,6 +313,20 @@
       ? `${I18n.formatDate(best.date, { weekday: 'short', day: 'numeric', month: 'short' })} · ${I18n.formatPrice(best.revenue)}`
       : '—';
 
+    $('rev-staff').replaceChildren(...data.byStylist.map(s => el('div', { class: 'kpi' }, [
+      el('span', { class: 'kpi-label', text: stylistName(s.id) }),
+      el('span', { class: 'kpi-value', text: I18n.formatPrice(s.revenue) }),
+      el('small', { class: 'kpi-sub', text: `${s.appointments} ${t('admin.rev.count').toLowerCase()}` })
+    ])));
+
+    // Une colonne de CA par coiffeuse, avant le total.
+    document.querySelectorAll('.col-stylist').forEach(n => n.remove());
+    salon.staff.forEach(s => {
+      $('rev-head-total').before(el('th', { class: 'num col-stylist', text: s.name[I18n.lang] }));
+      const own = data.byStylist.find(x => x.id === s.id);
+      $('rev-foot-total').before(el('th', { class: 'num col-stylist', text: I18n.formatPrice(own ? own.revenue : 0) }));
+    });
+
     renderChart(data.days);
 
     $('rev-body').replaceChildren(...data.days.map(d => {
@@ -297,8 +342,9 @@
       });
       return el('tr', { class: d.revenue ? '' : 'is-empty' }, [
         el('td', {}, [link]),
-        el('td', { class: 'num', text: String(d.appointments) }),
+        el('td', { class: 'num col-count', text: String(d.appointments) }),
         el('td', { class: 'num col-cancelled', text: String(d.cancelled) }),
+        ...salon.staff.map(s => el('td', { class: 'num col-stylist', text: I18n.formatPrice(d.byStylist[s.id] || 0) })),
         el('td', { class: 'num strong', text: I18n.formatPrice(d.revenue) })
       ]);
     }));
@@ -312,6 +358,7 @@
   I18n.onChange(() => {
     if (!salon) return;
     renderServiceOptions();
+    renderStylistOptions();
     refresh();
   });
 
@@ -325,6 +372,7 @@
     $('rev-to').value = today;
     $('admin-form').date.value = today;
     renderServiceOptions();
+    renderStylistOptions();
     const { authenticated } = await api('/api/admin/session');
     if (authenticated) showDashboard();
     else showLogin();

@@ -59,6 +59,7 @@
           <input type="date" id="agenda-date">
           <button type="button" class="icon-btn" id="day-next" data-i18n-aria="admin.next">›</button>
           <button type="button" class="btn btn-small btn-ghost" id="day-today" data-i18n="admin.today">Aujourd’hui</button>
+          <select id="agenda-stylist" class="toolbar-select" data-i18n-aria="admin.col.stylist"></select>
           <h2 class="toolbar-title" id="agenda-title"></h2>
         </div>
         <div class="kpis">
@@ -72,6 +73,7 @@
               <th data-i18n="admin.col.time">Heure</th>
               <th data-i18n="admin.col.client">Cliente</th>
               <th data-i18n="admin.col.service">Prestation</th>
+              <th data-i18n="admin.col.stylist">Coiffeuse</th>
               <th data-i18n="admin.col.contact">Contact</th>
               <th class="num" data-i18n="admin.col.price">Prix</th>
               <th data-i18n="admin.col.status">Statut</th>
@@ -92,6 +94,7 @@
             <label class="field"><span data-i18n="book.phone">Téléphone</span><input name="phone" type="tel" inputmode="tel" required maxlength="30"></label>
             <label class="field"><span data-i18n="book.email">E-mail</span><input name="email" type="email" maxlength="120"></label>
             <label class="field field-wide"><span data-i18n="book.step1">Prestation</span><select name="service" id="admin-service" required></select></label>
+            <label class="field field-wide"><span data-i18n="admin.col.stylist">Coiffeuse</span><select name="stylist" id="admin-stylist"></select></label>
             <label class="field"><span data-i18n="book.date">Date</span><input name="date" type="date" required></label>
             <label class="field"><span data-i18n="admin.time">Heure</span><input name="time" type="time" step="300" required></label>
             <label class="field"><span data-i18n="admin.price">Prix (€)</span><input name="price" type="number" inputmode="decimal" min="0" step="0.01" data-i18n-ph="admin.pricePh"></label>
@@ -120,6 +123,8 @@
           <div class="kpi"><span class="kpi-label" data-i18n="admin.rev.avg">Panier moyen</span><span class="kpi-value" id="rev-avg">—</span></div>
           <div class="kpi kpi-wide"><span class="kpi-label" data-i18n="admin.rev.best">Meilleur jour</span><span class="kpi-value kpi-small" id="rev-best">—</span></div>
         </div>
+        <p class="label" data-i18n="admin.rev.byStylist">CA par coiffeuse</p>
+        <div class="kpis kpis-staff" id="rev-staff"></div>
         <figure class="chart-card">
           <figcaption data-i18n="admin.rev.chart">Chiffre d’affaires par jour</figcaption>
           <div id="rev-chart" class="chart"></div>
@@ -128,14 +133,14 @@
           <table class="table">
             <thead><tr>
               <th data-i18n="admin.rev.date">Date</th>
-              <th class="num" data-i18n="admin.rev.count">Rendez-vous</th>
+              <th class="num col-count" data-i18n="admin.rev.count">Rendez-vous</th>
               <th class="num col-cancelled" data-i18n="admin.rev.cancelled">Annulés</th>
-              <th class="num" data-i18n="admin.rev.revenue">CA</th>
+              <th class="num" id="rev-head-total" data-i18n="admin.rev.revenue">CA</th>
             </tr></thead>
             <tbody id="rev-body"></tbody>
             <tfoot><tr>
               <th data-i18n="admin.rev.total">Total</th>
-              <th class="num" id="rev-foot-count"></th>
+              <th class="num col-count" id="rev-foot-count"></th>
               <th class="num col-cancelled" id="rev-foot-cancelled"></th>
               <th class="num" id="rev-foot-total"></th>
             </tr></tfoot>

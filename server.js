@@ -117,6 +117,10 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     return config.services.find(s => s.id === id);
   }
 
+  function findStylist(id) {
+    return config.staff.find(s => s.id === id);
+  }
+
   function cleanText(value, max) {
     return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : '';
   }
@@ -133,6 +137,11 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     const notes = cleanText(body.notes, 500);
     const service = findService(body.service);
     const lang = body.lang === 'nl' ? 'nl' : 'fr';
+    // « any » ou vide : sans préférence, une coiffeuse libre sera attribuée.
+    const stylist = body.stylist && body.stylist !== 'any' ? String(body.stylist) : null;
+    const stylistRequested = body.stylistRequested !== undefined
+      ? Boolean(body.stylistRequested) && Boolean(stylist)
+      : Boolean(stylist);
 
     if (!lastName) errors.push('lastName');
     if (!firstName) errors.push('firstName');
@@ -142,6 +151,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     if (!S.isValidDate(date)) errors.push('date');
     if (!S.isValidTime(time)) errors.push('time');
     if (!service) errors.push('service');
+    if (stylist && !findStylist(stylist)) errors.push('stylist');
 
     let price = service ? service.price : 0;
     if (admin && body.price !== undefined && body.price !== '' && body.price !== null) {
@@ -154,6 +164,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
 
     return {
       lastName, firstName, email, phone, date, time, notes, lang, price,
+      stylist, stylistRequested,
       service: service.id,
       serviceName: service.name,
       duration: service.duration
@@ -178,14 +189,26 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       }
     }
 
-    const occupied = S.peakOccupancy(store.list(), fields.date, start, fields.duration, ignoreId);
-    if (occupied >= config.chairs && !(admin && force)) throw new HttpError(409, 'slot_taken');
+    // Coiffeuse demandée : elle doit être libre. Sans préférence : n'importe quelle coiffeuse libre.
+    const wanted = fields.stylistRequested ? fields.stylist : null;
+    const appointments = store.list({ from: fields.date, to: fields.date, status: 'confirmed' })
+      .filter(a => a.id !== ignoreId);
+    let candidates = S.freeStylists(config, appointments, fields.date, start, fields.duration, wanted);
+    if (!candidates.length) {
+      if (!(admin && force)) throw new HttpError(409, 'slot_taken');
+      candidates = config.staff.filter(s => !wanted || s.id === wanted);
+    }
+    // On répartit la charge : la coiffeuse la moins occupée ce jour-là.
+    const load = id => appointments.filter(a => a.stylist === id).reduce((sum, a) => sum + a.duration, 0);
+    candidates.sort((a, b) => load(a.id) - load(b.id));
+    return candidates[0].id;
   }
 
   function publicAppointment(a) {
     return {
       id: a.id, date: a.date, time: a.time, service: a.service,
-      serviceName: a.serviceName, duration: a.duration, price: a.price, firstName: a.firstName
+      serviceName: a.serviceName, duration: a.duration, price: a.price, firstName: a.firstName,
+      stylist: a.stylist, stylistName: findStylist(a.stylist) ? findStylist(a.stylist).name : null
     };
   }
 
@@ -201,6 +224,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         openingHours: config.openingHours,
         maxDaysAhead: config.maxDaysAhead,
         services: config.services,
+        staff: config.staff,
         today: S.localNow(now()).date
       });
     }
@@ -208,12 +232,16 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     if (route === 'GET /api/slots') {
       const date = url.searchParams.get('date') || '';
       const service = findService(url.searchParams.get('service'));
-      if (!S.isValidDate(date) || !service) throw new HttpError(400, 'invalid_query');
+      const stylistParam = url.searchParams.get('stylist');
+      const stylist = stylistParam && stylistParam !== 'any' ? stylistParam : null;
+      if (!S.isValidDate(date) || !service || (stylist && !findStylist(stylist))) {
+        throw new HttpError(400, 'invalid_query');
+      }
       const current = S.localNow(now()).date;
       const slots = date > S.addDays(current, config.maxDaysAhead)
         ? []
-        : S.slotsFor(config, store.list(), date, service, now());
-      return send(res, 200, { date, service: service.id, slots });
+        : S.slotsFor(config, store.list(), date, service, stylist, now());
+      return send(res, 200, { date, service: service.id, stylist, slots });
     }
 
     if (route === 'POST /api/appointments') {
@@ -221,7 +249,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       // Champ piège invisible pour les robots.
       if (body.website) throw new HttpError(400, 'invalid_fields');
       const fields = validateAppointment(body, { admin: false });
-      checkSlot(fields, { admin: false });
+      fields.stylist = checkSlot(fields, { admin: false });
       const appointment = store.create({ ...fields, source: 'online' });
       return send(res, 201, publicAppointment(appointment));
     }
@@ -273,7 +301,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     if (route === 'POST /api/admin/appointments') {
       const body = await readJson(req);
       const fields = validateAppointment(body, { admin: true });
-      checkSlot(fields, { admin: true, force: body.force === true });
+      fields.stylist = checkSlot(fields, { admin: true, force: body.force === true });
       const appointment = store.create({ ...fields, source: 'admin' });
       return send(res, 201, appointment);
     }
@@ -287,17 +315,19 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         const body = await readJson(req);
         if (body.status !== undefined) {
           if (!['confirmed', 'cancelled'].includes(body.status)) throw new HttpError(400, 'invalid_fields');
+          const changes = { status: body.status };
           if (body.status === 'confirmed' && existing.status !== 'confirmed') {
-            checkSlot(existing, { admin: true, force: body.force === true, ignoreId: existing.id });
+            changes.stylist = checkSlot(existing, { admin: true, force: body.force === true, ignoreId: existing.id });
           }
-          return send(res, 200, store.update(existing.id, { status: body.status }));
+          return send(res, 200, store.update(existing.id, changes));
         }
         const merged = { ...existing, ...body };
         // Changement de prestation sans prix saisi : on reprend le tarif de la nouvelle prestation.
         if (body.service && body.service !== existing.service && body.price === undefined) delete merged.price;
+        if (body.stylist !== undefined) merged.stylistRequested = body.stylist !== 'any' && Boolean(body.stylist);
         const fields = validateAppointment(merged, { admin: true });
         if (existing.status === 'confirmed') {
-          checkSlot(fields, { admin: true, force: body.force === true, ignoreId: existing.id });
+          fields.stylist = checkSlot(fields, { admin: true, force: body.force === true, ignoreId: existing.id });
         }
         return send(res, 200, store.update(existing.id, fields));
       }
@@ -317,7 +347,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
 
       const byDate = new Map();
       for (let d = from; d <= to; d = S.addDays(d, 1)) {
-        byDate.set(d, { date: d, revenue: 0, appointments: 0, cancelled: 0, byService: {} });
+        byDate.set(d, { date: d, revenue: 0, appointments: 0, cancelled: 0, byService: {}, byStylist: {} });
       }
       for (const a of store.list({ from, to })) {
         const day = byDate.get(a.date);
@@ -328,12 +358,21 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         day.revenue += a.price;
         day.appointments += 1;
         day.byService[a.service] = (day.byService[a.service] || 0) + a.price;
+        day.byStylist[a.stylist] = (day.byStylist[a.stylist] || 0) + a.price;
       }
       const days = [...byDate.values()].map(d => ({ ...d, revenue: Math.round(d.revenue * 100) / 100 }));
       const total = Math.round(days.reduce((sum, d) => sum + d.revenue, 0) * 100) / 100;
       const appointments = days.reduce((sum, d) => sum + d.appointments, 0);
+      const byStylist = config.staff.map(st => {
+        const own = store.list({ from, to, status: 'confirmed' }).filter(a => a.stylist === st.id);
+        return {
+          id: st.id,
+          revenue: Math.round(own.reduce((sum, a) => sum + a.price, 0) * 100) / 100,
+          appointments: own.length
+        };
+      });
       return send(res, 200, {
-        from, to, currency: config.currency, days, total, appointments,
+        from, to, currency: config.currency, days, total, appointments, byStylist,
         averageTicket: appointments ? Math.round((total / appointments) * 100) / 100 : 0
       });
     }

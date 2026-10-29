@@ -323,6 +323,31 @@ body.admin { background: var(--ivory); font-size: 16px; }
 .day[aria-checked="true"] span { color: inherit; }
 .day:disabled { opacity: .35; cursor: not-allowed; background: transparent; }
 
+/* ---------- choix de la coiffeuse ---------- */
+.staff-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.stylist-card {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; text-align: left;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; font-family: var(--sans); color: var(--ink); transition: all .2s;
+}
+.stylist-card:hover { border-color: var(--gold); }
+.stylist-avatar {
+  flex: 0 0 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--gold); color: var(--gold); font: italic 400 1.5rem/1 var(--serif);
+}
+.stylist-text { display: flex; flex-direction: column; min-width: 0; }
+.stylist-name { font-family: var(--serif); font-size: 1.3rem; line-height: 1.2; }
+.stylist-title { font-size: .8rem; color: var(--muted); }
+.stylist-card[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--ivory); }
+.stylist-card[aria-checked="true"] .stylist-title { color: #c9bba8; }
+.stylist-card[aria-checked="true"] .stylist-avatar { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+
+/* Admin : coiffeuse */
+.toolbar-select { width: auto; padding: 9px 40px 9px 12px; }
+.table td.stylist { white-space: nowrap; }
+.kpi-sub { color: var(--muted); font-size: .8rem; }
+.kpis-staff { margin-top: -4px; }
+
 /* ---------- barre d'action mobile ---------- */
 .mobile-cta { display: none; }
 
@@ -386,6 +411,8 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .booking { margin-top: 2rem; }
   .summary { padding: 16px 18px; }
   .service { padding: 20px 0; }
+  .staff-picker { grid-template-columns: 1fr; gap: 8px; }
+  .stylist-card { padding: 12px 14px; }
   .days { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; scroll-padding-left: 16px; }
 
   /* ---------- Admin : barre d'onglets en bas, façon application ---------- */
@@ -411,7 +438,8 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .tab-panel[data-panel="agenda"] .toolbar { display: grid; grid-template-columns: 44px 1fr 44px; }
   .tab-panel[data-panel="agenda"] .toolbar input[type="date"] { width: 100%; height: 44px; }
   .icon-btn { width: 44px; height: 44px; }
-  #day-today { grid-column: 1 / -1; order: 5; }
+  #day-today { grid-column: 1 / -1; order: 6; }
+  #agenda-stylist { grid-column: 1 / -1; order: 5; width: 100%; height: 44px; }
   .toolbar-title { grid-column: 1 / -1; order: 4; margin: 4px 0 0; font-size: 1.45rem; }
 
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
@@ -427,7 +455,7 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .table-wrap:has(.agenda-table) { background: transparent; border: 0; overflow: visible; }
   .agenda-table tr {
     display: grid; grid-template-columns: 58px 1fr auto; column-gap: 12px; row-gap: 2px; align-items: baseline;
-    grid-template-areas: "time client price" "time service status" "time notes notes" "contact contact contact" "actions actions actions";
+    grid-template-areas: "time client price" "time service status" "time stylist stylist" "time notes notes" "contact contact contact" "actions actions actions";
     background: var(--paper); border: 1px solid var(--line); border-left: 3px solid var(--gold);
     padding: 14px 14px 10px; margin-bottom: 10px;
   }
@@ -440,8 +468,10 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .agenda-table td.client strong { grid-area: client; font-weight: 500; font-size: 1.02rem; }
   .agenda-table td.client .tag { display: none; }
   .agenda-table td.client .notes { grid-area: notes; margin: 4px 0 0; }
-  .agenda-table td.service { grid-area: service; color: var(--ink-soft); font-size: .9rem; }
-  .agenda-table td.price { grid-area: price; font-weight: 500; }
+  .agenda-table td.appt-service { grid-area: service; color: var(--ink-soft); font-size: .9rem; }
+  .agenda-table td.stylist { grid-area: stylist; display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--gold-dark); }
+  .agenda-table td.stylist .tag { margin-left: 2px; }
+  .agenda-table td.appt-price { grid-area: price; font-weight: 500; }
   .agenda-table td.status-cell { grid-area: status; text-align: right; }
   .agenda-table td.contact { grid-area: contact; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .agenda-table td.contact br { display: none; }
@@ -452,7 +482,7 @@ body.admin { background: var(--ivory); font-size: 16px; }
   }
   .agenda-table td.contact a.phone { background: var(--ink); color: var(--ivory); border-color: var(--ink); }
   .agenda-table td.actions { grid-area: actions; display: flex; justify-content: flex-end; gap: 20px; margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
-  .agenda-table tr.is-cancelled td.price { text-decoration: line-through; }
+  .agenda-table tr.is-cancelled td.appt-price { text-decoration: line-through; }
 
   /* Chiffre d'affaires */
   .tab-panel[data-panel="revenue"] .toolbar { display: grid; grid-template-columns: 1fr 1fr; }
@@ -463,7 +493,8 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .chart { height: 180px; gap: 3px; grid-template-columns: repeat(var(--bars, 7), minmax(6px, 1fr)); }
   .chart-card { padding: 14px 12px 8px; }
   .bar-value { font-size: .6rem; }
-  .date-long, .col-cancelled { display: none; }
+  .date-long, .col-cancelled, .col-count { display: none; }
+  .table th.col-stylist { white-space: normal; }
   .date-short { display: inline; }
   .table th, .table td { padding: 12px 12px; }
   .table tr.is-empty { display: none; }

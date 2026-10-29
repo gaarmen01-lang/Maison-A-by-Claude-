@@ -7,12 +7,13 @@ Site vitrine et de réservation pour un salon de coiffure féminin premium, en *
 **Site public** (`/`)
 - Présentation du salon, carte des prestations avec tarifs et durées, horaires et adresse.
 - Bascule FR / NL (mémorisée dans le navigateur, détection automatique de la langue).
-- Prise de rendez-vous en ligne : prestation, date, créneau horaire (seuls les créneaux libres sont proposés), nom, prénom, e-mail et téléphone.
+- Prise de rendez-vous en ligne : prestation, **choix de la coiffeuse** (Employée 1, Employée 2 ou « Sans préférence »), date, créneau horaire (seuls les créneaux libres de la coiffeuse choisie sont proposés), nom, prénom, e-mail et téléphone.
+- « Sans préférence » : la coiffeuse libre la moins chargée ce jour-là est attribuée automatiquement, et son nom est affiché dans la confirmation.
 
 **Espace administrateur** (`/admin`, protégé par mot de passe)
-- **Agenda** jour par jour : liste des rendez-vous, coordonnées des clientes, annulation / rétablissement / suppression, CA du jour.
-- **Nouveau rendez-vous** : le salon fixe lui-même un rendez-vous (téléphone, comptoir), e-mail facultatif, prix ajustable, possibilité de forcer un créneau déjà complet.
-- **Chiffre d'affaires** : CA réalisé par jour grâce aux rendez-vous confirmés, sur la période choisie (7 derniers jours, mois en cours, 30 prochains jours ou dates libres), avec graphique, total, nombre de rendez-vous, panier moyen et meilleur jour. Les rendez-vous annulés ne sont pas comptés.
+- **Agenda** jour par jour : liste des rendez-vous avec la coiffeuse (mention « Demandée » quand la cliente l'a choisie), filtre par coiffeuse, coordonnées des clientes, annulation / rétablissement / suppression, CA du jour.
+- **Nouveau rendez-vous** : le salon fixe lui-même un rendez-vous (téléphone, comptoir) et choisit la coiffeuse ou laisse l'attribution automatique, e-mail facultatif, prix ajustable, possibilité de forcer un créneau déjà complet.
+- **Chiffre d'affaires** : CA réalisé par jour grâce aux rendez-vous confirmés, sur la période choisie (7 derniers jours, mois en cours, 30 prochains jours ou dates libres), avec graphique, total, nombre de rendez-vous, panier moyen, meilleur jour et **CA par coiffeuse** (total et par jour). Les rendez-vous annulés ne sont pas comptés.
 
 ## Pensé pour le téléphone
 
@@ -42,7 +43,7 @@ Sans `ADMIN_PASSWORD`, le mot de passe est `admin` (développement uniquement ; 
 
 ## Personnaliser
 
-Tout se règle dans [`lib/config.js`](lib/config.js) : prestations (noms FR/NL, descriptions, durée, prix), horaires d'ouverture, nombre de fauteuils (rendez-vous simultanés), intervalle entre créneaux, délai minimum et horizon de réservation.
+Tout se règle dans [`lib/config.js`](lib/config.js) : **coiffeuses** (`staff` : remplacez « Employée 1 / 2 » par les vrais prénoms, ajoutez-en une en copiant un bloc), prestations (noms FR/NL, descriptions, durée, prix), horaires d'ouverture, intervalle entre créneaux, délai minimum et horizon de réservation.
 
 Les textes du site sont dans [`public/js/i18n.js`](public/js/i18n.js) ; l'adresse et le téléphone dans [`public/index.html`](public/index.html) (section « Horaires ») et dans les clés `hours.address` de `i18n.js`.
 

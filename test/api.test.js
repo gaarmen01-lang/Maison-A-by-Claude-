@@ -116,3 +116,40 @@ test('l’admin fixe un rendez-vous et le CA du jour est calculé', async () => 
   assert.strictEqual(list.body.appointments.length, 4);
   assert.strictEqual(list.body.appointments[0].time, '10:00');
 });
+
+test('la cliente choisit sa coiffeuse', async () => {
+  const day = '2026-11-06'; // vendredi
+  const first = await request('POST', '/api/appointments', client({ date: day, time: '11:00', stylist: 'employee-1' }));
+  assert.strictEqual(first.status, 201);
+  assert.strictEqual(first.body.stylist, 'employee-1');
+  assert.deepStrictEqual(first.body.stylistName, { fr: 'Employée 1', nl: 'Medewerkster 1' });
+
+  // L'employée 1 est prise à 11:00, l'employée 2 est encore libre.
+  const again = await request('POST', '/api/appointments', client({ date: day, time: '11:00', stylist: 'employee-1' }));
+  assert.strictEqual(again.body.error, 'slot_taken');
+  const slots1 = await request('GET', `/api/slots?date=${day}&service=brushing&stylist=employee-1`);
+  const slots2 = await request('GET', `/api/slots?date=${day}&service=brushing&stylist=employee-2`);
+  const slotsAny = await request('GET', `/api/slots?date=${day}&service=brushing`);
+  const at = (r, time) => r.body.slots.find(s => s.time === time).available;
+  assert.strictEqual(at(slots1, '11:00'), false);
+  assert.strictEqual(at(slots2, '11:00'), true);
+  assert.strictEqual(at(slotsAny, '11:00'), true);
+
+  // Sans préférence : la coiffeuse encore libre est attribuée automatiquement.
+  const any = await request('POST', '/api/appointments', client({ date: day, time: '11:00', stylist: 'any' }));
+  assert.strictEqual(any.status, 201);
+  assert.strictEqual(any.body.stylist, 'employee-2');
+
+  // Coiffeuse inconnue refusée.
+  const bad = await request('POST', '/api/appointments', client({ date: day, time: '15:00', stylist: 'inconnue' }));
+  assert.deepStrictEqual(bad.body.fields, ['stylist']);
+});
+
+test('le CA est aussi ventilé par coiffeuse', async () => {
+  const rev = await request('GET', '/api/admin/revenue?from=2026-11-06&to=2026-11-06', null, { Cookie: cookie });
+  assert.deepStrictEqual(rev.body.byStylist, [
+    { id: 'employee-1', revenue: 48, appointments: 1 },
+    { id: 'employee-2', revenue: 48, appointments: 1 }
+  ]);
+  assert.deepStrictEqual(rev.body.days[0].byStylist, { 'employee-1': 48, 'employee-2': 48 });
+});

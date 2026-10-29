@@ -89,15 +89,20 @@
           </fieldset>
 
           <fieldset>
-            <legend><span class="step">2</span><span data-i18n="book.step2">Date & heure</span></legend>
+            <legend><span class="step">2</span><span data-i18n="book.stepStylist">Votre coiffeuse</span></legend>
+            <div id="staff" class="staff-picker" role="radiogroup" data-i18n-aria="book.stepStylist"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="step">3</span><span data-i18n="book.step2">Date & heure</span></legend>
             <p class="label" data-i18n="book.date">Date</p>
             <div id="days" class="days" role="radiogroup" data-i18n-aria="book.date"></div>
             <p class="label" data-i18n="book.slots">Créneaux disponibles</p>
             <div id="slots" class="slots" role="radiogroup" aria-live="polite"></div>
           </fieldset>
 
-          <fieldset>
-            <legend><span class="step">3</span><span data-i18n="book.step3">Vos coordonnées</span></legend>
+          <fieldset id="step-contact">
+            <legend><span class="step">4</span><span data-i18n="book.step3">Vos coordonnées</span></legend>
             <div class="grid-2">
               <label class="field"><span data-i18n="book.lastName">Nom</span>
                 <input name="lastName" autocomplete="family-name" autocapitalize="words" enterkeyhint="next" required maxlength="80"></label>
