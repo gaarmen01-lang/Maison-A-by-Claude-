@@ -250,7 +250,7 @@
       const body = await res.json();
       if (!res.ok) {
         showError(body.error, body.fields);
-        if (body.error === 'slot_taken' || body.error === 'too_soon') loadSlots();
+        if (['slot_taken', 'stylist_busy', 'too_soon'].includes(body.error)) loadSlots();
         return;
       }
       document.getElementById('success-text').textContent = t('book.success.text', {

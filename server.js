@@ -171,7 +171,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     };
   }
 
-  function checkSlot(fields, { admin, force, ignoreId }) {
+  function checkSlot(fields, { admin, ignoreId }) {
     const hours = config.openingHours[S.weekday(fields.date)];
     const start = S.toMinutes(fields.time);
     const current = S.localNow(now());
@@ -189,15 +189,13 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       }
     }
 
+    // Une coiffeuse ne peut jamais avoir deux rendez-vous qui se chevauchent, même saisis par le salon.
     // Coiffeuse demandée : elle doit être libre. Sans préférence : n'importe quelle coiffeuse libre.
     const wanted = fields.stylistRequested ? fields.stylist : null;
     const appointments = store.list({ from: fields.date, to: fields.date, status: 'confirmed' })
       .filter(a => a.id !== ignoreId);
-    let candidates = S.freeStylists(config, appointments, fields.date, start, fields.duration, wanted);
-    if (!candidates.length) {
-      if (!(admin && force)) throw new HttpError(409, 'slot_taken');
-      candidates = config.staff.filter(s => !wanted || s.id === wanted);
-    }
+    const candidates = S.freeStylists(config, appointments, fields.date, start, fields.duration, wanted);
+    if (!candidates.length) throw new HttpError(409, wanted ? 'stylist_busy' : 'slot_taken');
     // On répartit la charge : la coiffeuse la moins occupée ce jour-là.
     const load = id => appointments.filter(a => a.stylist === id).reduce((sum, a) => sum + a.duration, 0);
     candidates.sort((a, b) => load(a.id) - load(b.id));
@@ -301,7 +299,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     if (route === 'POST /api/admin/appointments') {
       const body = await readJson(req);
       const fields = validateAppointment(body, { admin: true });
-      fields.stylist = checkSlot(fields, { admin: true, force: body.force === true });
+      fields.stylist = checkSlot(fields, { admin: true });
       const appointment = store.create({ ...fields, source: 'admin' });
       return send(res, 201, appointment);
     }
@@ -317,7 +315,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
           if (!['confirmed', 'cancelled'].includes(body.status)) throw new HttpError(400, 'invalid_fields');
           const changes = { status: body.status };
           if (body.status === 'confirmed' && existing.status !== 'confirmed') {
-            changes.stylist = checkSlot(existing, { admin: true, force: body.force === true, ignoreId: existing.id });
+            changes.stylist = checkSlot(existing, { admin: true, ignoreId: existing.id });
           }
           return send(res, 200, store.update(existing.id, changes));
         }
@@ -327,7 +325,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         if (body.stylist !== undefined) merged.stylistRequested = body.stylist !== 'any' && Boolean(body.stylist);
         const fields = validateAppointment(merged, { admin: true });
         if (existing.status === 'confirmed') {
-          fields.stylist = checkSlot(fields, { admin: true, force: body.force === true, ignoreId: existing.id });
+          fields.stylist = checkSlot(fields, { admin: true, ignoreId: existing.id });
         }
         return send(res, 200, store.update(existing.id, fields));
       }

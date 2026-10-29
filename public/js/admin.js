@@ -119,11 +119,7 @@
     try {
       await api('/api/admin/appointments/' + a.id, { method: 'PATCH', body: { status } });
     } catch (err) {
-      if (err.code === 'slot_taken' && confirm(t('admin.forceFull'))) {
-        await api('/api/admin/appointments/' + a.id, { method: 'PATCH', body: { status, force: true } });
-      } else if (err.code !== 'slot_taken') {
-        alert(errorText(err));
-      }
+      alert(errorText(err));
     }
     loadAgenda();
   }
@@ -225,11 +221,10 @@
     if (current) select.value = current;
   }
 
-  async function submitAdminForm(force) {
+  async function submitAdminForm() {
     const form = $('admin-form');
     const data = Object.fromEntries(new FormData(form));
     data.lang = I18n.lang;
-    data.force = force;
     form.querySelectorAll('.invalid').forEach(n => n.classList.remove('invalid'));
     $('admin-error').hidden = true;
     $('admin-ok').hidden = true;
@@ -242,7 +237,6 @@
       agendaDate = created.date;
       $('agenda-date').value = created.date;
     } catch (err) {
-      if (err.code === 'slot_taken' && !force && confirm(t('admin.forceFull'))) return submitAdminForm(true);
       (err.fields || []).forEach(name => form.elements[name] && form.elements[name].classList.add('invalid'));
       $('admin-error').textContent = errorText(err);
       $('admin-error').hidden = false;
@@ -251,7 +245,7 @@
 
   $('admin-form').addEventListener('submit', e => {
     e.preventDefault();
-    submitAdminForm(false);
+    submitAdminForm();
   });
 
   // ---------- chiffre d'affaires ----------

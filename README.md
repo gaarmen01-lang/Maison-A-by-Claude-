@@ -12,7 +12,9 @@ Site vitrine et de réservation pour un salon de coiffure féminin premium, en *
 
 **Espace administrateur** (`/admin`, protégé par mot de passe)
 - **Agenda** jour par jour : liste des rendez-vous avec la coiffeuse (mention « Demandée » quand la cliente l'a choisie), filtre par coiffeuse, coordonnées des clientes, annulation / rétablissement / suppression, CA du jour.
-- **Nouveau rendez-vous** : le salon fixe lui-même un rendez-vous (téléphone, comptoir) et choisit la coiffeuse ou laisse l'attribution automatique, e-mail facultatif, prix ajustable, possibilité de forcer un créneau déjà complet.
+- **Nouveau rendez-vous** : le salon fixe lui-même un rendez-vous (téléphone, comptoir) et choisit la coiffeuse ou laisse l'attribution automatique, e-mail facultatif, prix ajustable.
+
+**Règle de planning** : une coiffeuse ne peut jamais avoir deux rendez-vous qui se chevauchent (en tenant compte de la durée de chaque prestation), que le rendez-vous soit pris en ligne ou saisi par le salon. Deux rendez-vous à la même heure ne sont donc possibles que s'ils sont assurés par les deux coiffeuses.
 - **Chiffre d'affaires** : CA réalisé par jour grâce aux rendez-vous confirmés, sur la période choisie (7 derniers jours, mois en cours, 30 prochains jours ou dates libres), avec graphique, total, nombre de rendez-vous, panier moyen, meilleur jour et **CA par coiffeuse** (total et par jour). Les rendez-vous annulés ne sont pas comptés.
 
 ## Pensé pour le téléphone

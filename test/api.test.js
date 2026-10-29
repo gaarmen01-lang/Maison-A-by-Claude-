@@ -87,13 +87,19 @@ test('l’espace admin est protégé', async () => {
 
 test('l’admin fixe un rendez-vous et le CA du jour est calculé', async () => {
   const auth = { Cookie: cookie };
-  // Rendez-vous téléphonique sans e-mail, avec prix ajusté, en forçant un créneau complet.
+  // Les deux coiffeuses sont prises à 10:00 : même le salon ne peut pas ajouter un 3e rendez-vous.
   const full = await request('POST', '/api/admin/appointments',
-    client({ email: '', service: 'balayage', price: 190 }), auth);
-  assert.strictEqual(full.body.error, 'slot_taken');
-  const forced = await request('POST', '/api/admin/appointments',
     client({ email: '', service: 'balayage', price: 190, force: true }), auth);
-  assert.strictEqual(forced.status, 201);
+  assert.strictEqual(full.body.error, 'slot_taken');
+  // Employée 1 est occupée de 10:00 à 10:45 : un rendez-vous à 10:30 avec elle est refusé.
+  const overlap = await request('POST', '/api/admin/appointments',
+    client({ time: '10:30', stylist: 'employee-1' }), auth);
+  assert.strictEqual(overlap.body.error, 'stylist_busy');
+
+  // Rendez-vous téléphonique sans e-mail, avec prix ajusté.
+  const phone = await request('POST', '/api/admin/appointments',
+    client({ email: '', service: 'balayage', price: 190, time: '11:00' }), auth);
+  assert.strictEqual(phone.status, 201);
 
   const extra = await request('POST', '/api/admin/appointments', client({ time: '14:00', service: 'coloration' }), auth);
   assert.strictEqual(extra.status, 201);
@@ -126,7 +132,7 @@ test('la cliente choisit sa coiffeuse', async () => {
 
   // L'employée 1 est prise à 11:00, l'employée 2 est encore libre.
   const again = await request('POST', '/api/appointments', client({ date: day, time: '11:00', stylist: 'employee-1' }));
-  assert.strictEqual(again.body.error, 'slot_taken');
+  assert.strictEqual(again.body.error, 'stylist_busy');
   const slots1 = await request('GET', `/api/slots?date=${day}&service=brushing&stylist=employee-1`);
   const slots2 = await request('GET', `/api/slots?date=${day}&service=brushing&stylist=employee-2`);
   const slotsAny = await request('GET', `/api/slots?date=${day}&service=brushing`);
@@ -152,4 +158,47 @@ test('le CA est aussi ventilé par coiffeuse', async () => {
     { id: 'employee-2', revenue: 48, appointments: 1 }
   ]);
   assert.deepStrictEqual(rev.body.days[0].byStylist, { 'employee-1': 48, 'employee-2': 48 });
+});
+
+test('un rendez-vous annulé ne peut pas être rétabli si sa coiffeuse est prise entre-temps', async () => {
+  const auth = { Cookie: cookie };
+  const day = '2026-11-07'; // samedi
+  const first = await request('POST', '/api/admin/appointments', client({ date: day, time: '09:00', stylist: 'employee-1' }), auth);
+  await request('PATCH', '/api/admin/appointments/' + first.body.id, { status: 'cancelled' }, auth);
+  const second = await request('POST', '/api/admin/appointments', client({ date: day, time: '09:00', stylist: 'employee-1' }), auth);
+  assert.strictEqual(second.status, 201);
+  const restore = await request('PATCH', '/api/admin/appointments/' + first.body.id, { status: 'confirmed' }, auth);
+  assert.strictEqual(restore.body.error, 'stylist_busy');
+});
+
+test('jamais deux rendez-vous en même temps pour une même coiffeuse', async () => {
+  const auth = { Cookie: cookie };
+  const day = '2026-11-10'; // mardi
+  const services = ['brushing', 'coupe-brushing', 'coloration', 'balayage', 'rituel-soin'];
+  const stylists = ['any', 'employee-1', 'employee-2'];
+  let seed = 7;
+  const rand = n => (seed = (seed * 1103515245 + 12345) % 2147483648) % n;
+  let created = 0;
+  for (let i = 0; i < 300; i++) {
+    const minutes = 9 * 60 + 30 + rand(17) * 30;
+    const time = String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+    const body = client({ date: day, time, service: services[rand(services.length)], stylist: stylists[rand(3)] });
+    const res = i % 2
+      ? await request('POST', '/api/admin/appointments', body, auth)
+      : await request('POST', '/api/appointments', body);
+    if (res.status === 201) created++;
+    else assert.ok(['slot_taken', 'stylist_busy', 'outside_hours'].includes(res.body.error), res.body.error);
+  }
+  assert.ok(created > 5, 'des rendez-vous ont bien été créés');
+
+  const { body } = await request('GET', `/api/admin/appointments?from=${day}&to=${day}`, null, auth);
+  const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  for (const st of ['employee-1', 'employee-2']) {
+    const own = body.appointments.filter(a => a.stylist === st && a.status === 'confirmed');
+    for (let i = 1; i < own.length; i++) {
+      const prevEnd = toMin(own[i - 1].time) + own[i - 1].duration;
+      assert.ok(toMin(own[i].time) >= prevEnd, `${st} : ${own[i - 1].time} et ${own[i].time} se chevauchent`);
+    }
+  }
+  assert.ok(body.appointments.every(a => a.stylist === 'employee-1' || a.stylist === 'employee-2'));
 });
