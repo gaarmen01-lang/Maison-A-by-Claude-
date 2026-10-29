@@ -1,19 +1,39 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cdg1"],
+  "regions": [
+    "cdg1"
+  ],
   "cleanUrls": false,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/admin", "destination": "/admin.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "same-origin" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000"
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'"
@@ -22,10 +42,30 @@
     },
     {
       "source": "/admin(.*)",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "functions": {
-    "api/index.js": { "maxDuration": 10 }
-  }
+    "api/index.js": {
+      "maxDuration": 10
+    }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "maison-a-claude.vercel.app"
+        }
+      ],
+      "destination": "https://maisona-salon.be/:path*",
+      "permanent": true
+    }
+  ]
 }

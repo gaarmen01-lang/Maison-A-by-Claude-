@@ -46,7 +46,7 @@ Sans `ADMIN_PASSWORD`, le mot de passe est `admin` (développement uniquement ; 
 | `DATABASE_URL` | Base PostgreSQL (Supabase) ; remplace le fichier JSON | — |
 | `SESSION_SECRET` | Clé de signature des sessions admin | dérivée du mot de passe |
 | `RESEND_API_KEY` | Clé API Resend ; sans elle, aucun e-mail n'est envoyé | — |
-| `MAIL_FROM` | Expéditeur des e-mails | `Maison A <rendez-vous@maisona-salon.be>` |
+| `MAIL_FROM` | Expéditeur des e-mails | `Maison A <maisona@maisona-salon.be>` |
 | `MAIL_REPLY_TO` | Adresse qui reçoit les réponses des clientes | — |
 | `SALON_EMAIL` | Reçoit une copie de chaque réservation en ligne | — |
 
