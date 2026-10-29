@@ -7,12 +7,30 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createApp } = require('../server');
+const { FileStore } = require('../lib/store');
 
-// Mercredi 4 novembre 2026, 10:00 (heure locale).
-const NOW = new Date(2026, 10, 4, 10, 0);
+// Mercredi 4 novembre 2026, 10:00 à Bruxelles (09:00 UTC).
+const NOW = new Date(Date.UTC(2026, 10, 4, 9, 0));
+
+// Par défaut les tests utilisent le fichier JSON ; avec TEST_DATABASE_URL, ils tournent sur PostgreSQL
+// (même schéma que Supabase, voir supabase/migrations).
+async function makeStore() {
+  if (!process.env.TEST_DATABASE_URL) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maison-a-'));
+    return new FileStore(path.join(dir, 'db.json'));
+  }
+  const { Client } = require('pg');
+  const admin = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+  await admin.connect();
+  await admin.query('drop table if exists public.appointments');
+  await admin.query(fs.readFileSync(path.join(__dirname, '../supabase/migrations/001_appointments.sql'), 'utf8'));
+  await admin.end();
+  const PgStore = require('../lib/pg-store');
+  return new PgStore(process.env.TEST_DATABASE_URL);
+}
 const DAY = '2026-11-05'; // jeudi
 
-let server, base, cookie;
+let server, base, cookie, store;
 
 function request(method, url, body, headers = {}) {
   return fetch(base + url, {
@@ -28,14 +46,17 @@ const client = (extra = {}) => ({
 });
 
 test.before(async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maison-a-'));
-  const app = createApp({ dataFile: path.join(dir, 'db.json'), adminPassword: 'secret', now: () => NOW });
+  store = await makeStore();
+  const app = createApp({ store, adminPassword: 'secret', sessionSecret: 'test-secret', now: () => NOW });
   server = http.createServer(app.handler);
   await new Promise(r => server.listen(0, r));
   base = 'http://127.0.0.1:' + server.address().port;
 });
 
-test.after(() => server.close());
+test.after(async () => {
+  server.close();
+  if (store.close) await store.close();
+});
 
 test('les pages publiques sont servies', async () => {
   const home = await fetch(base + '/');
@@ -201,4 +222,24 @@ test('jamais deux rendez-vous en même temps pour une même coiffeuse', async ()
     }
   }
   assert.ok(body.appointments.every(a => a.stylist === 'employee-1' || a.stylist === 'employee-2'));
+});
+
+test('réservations simultanées : une seule passe pour la même coiffeuse', async () => {
+  const day = '2026-11-12'; // jeudi
+  const attempts = await Promise.all(Array.from({ length: 20 }, (_, i) =>
+    request('POST', '/api/appointments', client({ date: day, time: '15:00', stylist: 'employee-1', firstName: 'C' + i }))));
+  assert.strictEqual(attempts.filter(r => r.status === 201).length, 1);
+  assert.ok(attempts.filter(r => r.status !== 201).every(r => r.body.error === 'stylist_busy'));
+
+  // Sans préférence, au même instant : au plus une cliente par coiffeuse libre.
+  const any = await Promise.all(Array.from({ length: 10 }, () =>
+    request('POST', '/api/appointments', client({ date: day, time: '17:00', stylist: 'any' }))));
+  const ok = any.filter(r => r.status === 201);
+  assert.strictEqual(ok.length, 2);
+  assert.deepStrictEqual(ok.map(r => r.body.stylist).sort(), ['employee-1', 'employee-2']);
+});
+
+test('le contrôle de santé répond', async () => {
+  const res = await request('GET', '/api/health');
+  assert.deepStrictEqual([res.status, res.body], [200, { ok: true }]);
 });

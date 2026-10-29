@@ -1,7 +1,8 @@
 'use strict';
 
 // Serveur HTTP de Maison A : site public, API de réservation et espace administrateur.
-// Aucune dépendance externe : `node server.js` suffit.
+// En local : `node server.js` (fichier JSON, ou PostgreSQL si DATABASE_URL est défini).
+// Sur Vercel : api/index.js réutilise le même gestionnaire avec PostgreSQL (Supabase).
 
 const http = require('http');
 const fs = require('fs');
@@ -9,7 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const config = require('./lib/config');
-const Store = require('./lib/store');
+const { FileStore } = require('./lib/store');
 const S = require('./lib/schedule');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -48,10 +49,11 @@ class HttpError extends Error {
   }
 }
 
-function createApp({ dataFile, adminPassword, now = () => new Date() }) {
-  const store = new Store(dataFile);
-  const sessions = new Map();
+function createApp({ store, adminPassword, sessionSecret, now = () => new Date() }) {
+  // Sessions sans état serveur (indispensable sur Vercel) : jeton signé par HMAC.
+  const sessionKey = crypto.createHash('sha256').update(sessionSecret || adminPassword).digest();
   const loginFailures = new Map();
+  const today = () => S.localNow(now(), config.timeZone);
 
   // ---------- utilitaires ----------
 
@@ -98,15 +100,26 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     return out;
   }
 
+  function sign(payload) {
+    return crypto.createHmac('sha256', sessionKey).update(payload).digest('base64url');
+  }
+
+  function createSessionToken() {
+    const payload = Buffer.from(JSON.stringify({ exp: Date.now() + SESSION_TTL_MS })).toString('base64url');
+    return payload + '.' + sign(payload);
+  }
+
   function isAdmin(req) {
-    const token = parseCookies(req).ma_session;
-    const session = token && sessions.get(token);
-    if (!session) return false;
-    if (session.expires < Date.now()) {
-      sessions.delete(token);
+    const [payload, signature] = String(parseCookies(req).ma_session || '').split('.');
+    if (!payload || !signature) return false;
+    const expected = Buffer.from(sign(payload));
+    const given = Buffer.from(signature);
+    if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return false;
+    try {
+      return JSON.parse(Buffer.from(payload, 'base64url').toString()).exp > Date.now();
+    } catch {
       return false;
     }
-    return true;
   }
 
   function requireAdmin(req) {
@@ -171,10 +184,11 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     };
   }
 
-  function checkSlot(fields, { admin, ignoreId }) {
+  // Vérifie les règles du créneau, choisit la coiffeuse puis enregistre via `write(stylistId)`.
+  async function placeAppointment(fields, { admin, ignoreId }, write) {
     const hours = config.openingHours[S.weekday(fields.date)];
     const start = S.toMinutes(fields.time);
-    const current = S.localNow(now());
+    const current = today();
 
     if (!admin) {
       if (!hours) throw new HttpError(409, 'closed');
@@ -192,14 +206,23 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     // Une coiffeuse ne peut jamais avoir deux rendez-vous qui se chevauchent, même saisis par le salon.
     // Coiffeuse demandée : elle doit être libre. Sans préférence : n'importe quelle coiffeuse libre.
     const wanted = fields.stylistRequested ? fields.stylist : null;
-    const appointments = store.list({ from: fields.date, to: fields.date, status: 'confirmed' })
+    const busyError = new HttpError(409, wanted ? 'stylist_busy' : 'slot_taken');
+    const appointments = (await store.list({ from: fields.date, to: fields.date, status: 'confirmed' }))
       .filter(a => a.id !== ignoreId);
     const candidates = S.freeStylists(config, appointments, fields.date, start, fields.duration, wanted);
-    if (!candidates.length) throw new HttpError(409, wanted ? 'stylist_busy' : 'slot_taken');
+    if (!candidates.length) throw busyError;
     // On répartit la charge : la coiffeuse la moins occupée ce jour-là.
     const load = id => appointments.filter(a => a.stylist === id).reduce((sum, a) => sum + a.duration, 0);
     candidates.sort((a, b) => load(a.id) - load(b.id));
-    return candidates[0].id;
+    // Si une autre réservation passe au même instant, la base refuse le doublon : on essaie la suivante.
+    for (const candidate of candidates) {
+      try {
+        return await write(candidate.id);
+      } catch (err) {
+        if (err.code !== 'conflict') throw err;
+      }
+    }
+    throw busyError;
   }
 
   function publicAppointment(a) {
@@ -223,8 +246,14 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         maxDaysAhead: config.maxDaysAhead,
         services: config.services,
         staff: config.staff,
-        today: S.localNow(now()).date
+        today: today().date
       });
+    }
+
+    // Vérification de l'état du service (base de données joignable).
+    if (route === 'GET /api/health') {
+      await store.list({ from: '2000-01-01', to: '2000-01-01' });
+      return send(res, 200, { ok: true }, { 'Cache-Control': 'no-store' });
     }
 
     if (route === 'GET /api/slots') {
@@ -235,10 +264,9 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       if (!S.isValidDate(date) || !service || (stylist && !findStylist(stylist))) {
         throw new HttpError(400, 'invalid_query');
       }
-      const current = S.localNow(now()).date;
-      const slots = date > S.addDays(current, config.maxDaysAhead)
+      const slots = date > S.addDays(today().date, config.maxDaysAhead)
         ? []
-        : S.slotsFor(config, store.list(), date, service, stylist, now());
+        : S.slotsFor(config, await store.list({ from: date, to: date, status: 'confirmed' }), date, service, stylist, now());
       return send(res, 200, { date, service: service.id, stylist, slots });
     }
 
@@ -247,15 +275,16 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       // Champ piège invisible pour les robots.
       if (body.website) throw new HttpError(400, 'invalid_fields');
       const fields = validateAppointment(body, { admin: false });
-      fields.stylist = checkSlot(fields, { admin: false });
-      const appointment = store.create({ ...fields, source: 'online' });
+      const appointment = await placeAppointment(fields, { admin: false },
+        stylist => store.create({ ...fields, stylist, source: 'online' }));
       return send(res, 201, publicAppointment(appointment));
     }
 
     // ----- administration -----
 
     if (route === 'POST /api/admin/login') {
-      const ip = req.socket.remoteAddress;
+      // Sur Vercel, l'adresse de la cliente est transmise par la plateforme.
+      const ip = (process.env.VERCEL && req.headers['x-real-ip']) || req.socket.remoteAddress;
       const fails = loginFailures.get(ip) || { count: 0, until: 0 };
       if (fails.until > Date.now()) throw new HttpError(429, 'too_many_attempts');
 
@@ -269,8 +298,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         throw new HttpError(401, 'bad_password');
       }
       loginFailures.delete(ip);
-      const token = crypto.randomBytes(32).toString('hex');
-      sessions.set(token, { expires: Date.now() + SESSION_TTL_MS });
+      const token = createSessionToken();
       const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
       return send(res, 200, { ok: true }, {
         'Set-Cookie': `ma_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}${secure}`
@@ -278,7 +306,6 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     }
 
     if (route === 'POST /api/admin/logout') {
-      sessions.delete(parseCookies(req).ma_session);
       return send(res, 200, { ok: true }, {
         'Set-Cookie': 'ma_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'
       });
@@ -293,31 +320,31 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
     if (route === 'GET /api/admin/appointments') {
       const from = url.searchParams.get('from') || undefined;
       const to = url.searchParams.get('to') || undefined;
-      return send(res, 200, { appointments: store.list({ from, to }) });
+      return send(res, 200, { appointments: await store.list({ from, to }) });
     }
 
     if (route === 'POST /api/admin/appointments') {
       const body = await readJson(req);
       const fields = validateAppointment(body, { admin: true });
-      fields.stylist = checkSlot(fields, { admin: true });
-      const appointment = store.create({ ...fields, source: 'admin' });
+      const appointment = await placeAppointment(fields, { admin: true },
+        stylist => store.create({ ...fields, stylist, source: 'admin' }));
       return send(res, 201, appointment);
     }
 
     const match = url.pathname.match(/^\/api\/admin\/appointments\/([0-9a-f-]{36})$/);
     if (match) {
-      const existing = store.get(match[1]);
+      const existing = await store.get(match[1]);
       if (!existing) throw new HttpError(404, 'not_found');
 
       if (req.method === 'PATCH') {
         const body = await readJson(req);
         if (body.status !== undefined) {
           if (!['confirmed', 'cancelled'].includes(body.status)) throw new HttpError(400, 'invalid_fields');
-          const changes = { status: body.status };
           if (body.status === 'confirmed' && existing.status !== 'confirmed') {
-            changes.stylist = checkSlot(existing, { admin: true, ignoreId: existing.id });
+            return send(res, 200, await placeAppointment(existing, { admin: true, ignoreId: existing.id },
+              stylist => store.update(existing.id, { status: 'confirmed', stylist })));
           }
-          return send(res, 200, store.update(existing.id, changes));
+          return send(res, 200, await store.update(existing.id, { status: body.status }));
         }
         const merged = { ...existing, ...body };
         // Changement de prestation sans prix saisi : on reprend le tarif de la nouvelle prestation.
@@ -325,21 +352,21 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
         if (body.stylist !== undefined) merged.stylistRequested = body.stylist !== 'any' && Boolean(body.stylist);
         const fields = validateAppointment(merged, { admin: true });
         if (existing.status === 'confirmed') {
-          fields.stylist = checkSlot(fields, { admin: true, ignoreId: existing.id });
+          return send(res, 200, await placeAppointment(fields, { admin: true, ignoreId: existing.id },
+            stylist => store.update(existing.id, { ...fields, stylist })));
         }
-        return send(res, 200, store.update(existing.id, fields));
+        return send(res, 200, await store.update(existing.id, fields));
       }
 
       if (req.method === 'DELETE') {
-        store.remove(existing.id);
+        await store.remove(existing.id);
         return send(res, 200, { ok: true });
       }
     }
 
     if (route === 'GET /api/admin/revenue') {
-      const today = S.localNow(now()).date;
-      const from = url.searchParams.get('from') || S.addDays(today, -6);
-      const to = url.searchParams.get('to') || today;
+      const from = url.searchParams.get('from') || S.addDays(today().date, -6);
+      const to = url.searchParams.get('to') || today().date;
       if (!S.isValidDate(from) || !S.isValidDate(to) || from > to) throw new HttpError(400, 'invalid_query');
       if (S.addDays(from, 366) < to) throw new HttpError(400, 'range_too_large');
 
@@ -347,7 +374,8 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       for (let d = from; d <= to; d = S.addDays(d, 1)) {
         byDate.set(d, { date: d, revenue: 0, appointments: 0, cancelled: 0, byService: {}, byStylist: {} });
       }
-      for (const a of store.list({ from, to })) {
+      const list = await store.list({ from, to });
+      for (const a of list) {
         const day = byDate.get(a.date);
         if (a.status === 'cancelled') {
           day.cancelled += 1;
@@ -362,7 +390,7 @@ function createApp({ dataFile, adminPassword, now = () => new Date() }) {
       const total = Math.round(days.reduce((sum, d) => sum + d.revenue, 0) * 100) / 100;
       const appointments = days.reduce((sum, d) => sum + d.appointments, 0);
       const byStylist = config.staff.map(st => {
-        const own = store.list({ from, to, status: 'confirmed' }).filter(a => a.stylist === st.id);
+        const own = list.filter(a => a.status === 'confirmed' && a.stylist === st.id);
         return {
           id: st.id,
           revenue: Math.round(own.reduce((sum, a) => sum + a.price, 0) * 100) / 100,
@@ -423,10 +451,10 @@ if (require.main === module) {
     adminPassword = 'admin';
     console.warn('⚠  ADMIN_PASSWORD non défini : mot de passe administrateur par défaut « admin » (développement uniquement).');
   }
-  const app = createApp({
-    dataFile: process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'),
-    adminPassword
-  });
+  const store = process.env.DATABASE_URL
+    ? new (require('./lib/pg-store'))(process.env.DATABASE_URL)
+    : new FileStore(process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'));
+  const app = createApp({ store, adminPassword, sessionSecret: process.env.SESSION_SECRET });
   const port = Number(process.env.PORT) || 3000;
   http.createServer(app.handler).listen(port, () => {
     console.log(`Maison A — http://localhost:${port}  (admin : http://localhost:${port}/admin)`);

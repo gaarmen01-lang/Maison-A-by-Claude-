@@ -25,9 +25,10 @@ Site vitrine et de réservation pour un salon de coiffure féminin premium, en *
 
 ## Démarrer
 
-Node.js 18 ou plus récent, aucune dépendance à installer.
+Node.js 18 ou plus récent.
 
 ```bash
+npm install
 ADMIN_PASSWORD="votre-mot-de-passe" npm start
 ```
 
@@ -40,8 +41,11 @@ Sans `ADMIN_PASSWORD`, le mot de passe est `admin` (développement uniquement ; 
 |---|---|---|
 | `ADMIN_PASSWORD` | Mot de passe de l'espace salon | `admin` |
 | `PORT` | Port HTTP | `3000` |
-| `DATA_FILE` | Fichier de données des rendez-vous | `data/db.json` |
-| `TZ` | Fuseau horaire du salon (ex. `Europe/Brussels`) | celui du serveur |
+| `DATA_FILE` | Fichier de données des rendez-vous (sans `DATABASE_URL`) | `data/db.json` |
+| `DATABASE_URL` | Base PostgreSQL (Supabase) ; remplace le fichier JSON | — |
+| `SESSION_SECRET` | Clé de signature des sessions admin | dérivée du mot de passe |
+
+Le fuseau horaire du salon (`Europe/Brussels`) se règle dans `lib/config.js`.
 
 ## Personnaliser
 
@@ -52,9 +56,13 @@ Les textes du site sont dans [`public/js/i18n.js`](public/js/i18n.js) ; l'adress
 ## Tests
 
 ```bash
-npm test
+npm test                                   # stockage fichier JSON
+TEST_DATABASE_URL=postgres://… npm test    # mêmes tests sur PostgreSQL
 ```
 
-## Mise en ligne
+## Mise en ligne (Vercel + Supabase)
 
-Le serveur doit tourner en continu et pouvoir écrire dans `data/` (VPS, Render, Railway, Fly.io avec un volume…). Placez-le derrière HTTPS (le cookie de session passe en `Secure` quand l'en-tête `X-Forwarded-Proto: https` est présent) et sauvegardez régulièrement `data/db.json`.
+- **Vercel** sert les pages de `public/` ; les requêtes `/api/*` passent par la fonction `api/index.js` (région Paris, voir `vercel.json`).
+- **Supabase** stocke les rendez-vous (table créée par `supabase/migrations/001_appointments.sql`). La contrainte `no_double_booking` empêche en base toute double réservation d'une coiffeuse, même si deux clientes valident au même instant.
+- Le site se connecte avec un rôle dédié `maison_app` (droits limités à la table des rendez-vous) via le pooler de connexions Supabase.
+- Variables d'environnement du projet Vercel : `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`. Pour changer le mot de passe du salon : *Vercel → projet → Settings → Environment Variables → ADMIN_PASSWORD*, puis redéployer.
