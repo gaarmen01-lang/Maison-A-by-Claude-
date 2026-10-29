@@ -1,0 +1,14 @@
+{
+  "name": "maison-a",
+  "version": "1.0.0",
+  "description": "Site du salon de coiffure Maison A — réservation en ligne FR/NL et espace administrateur",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maison A — Salon de coiffure</title>
+  <meta name="description" content="Maison A, salon de coiffure premium pour femmes. Coupe, couleur, balayage et soins. Réservation en ligne.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#top" class="logo" aria-label="Maison A">Maison <span>A</span></a>
+      <nav class="main-nav">
+        <a href="#maison" data-i18n="nav.about">La Maison</a>
+        <a href="#prestations" data-i18n="nav.services">Prestations</a>
+        <a href="#horaires" data-i18n="nav.hours">Horaires</a>
+      </nav>
+      <div class="header-actions">
+        <div class="lang-switch" role="group" aria-label="Langue / Taal">
+          <button type="button" data-lang="fr">FR</button>
+          <button type="button" data-lang="nl">NL</button>
+        </div>
+        <a href="#reserver" class="btn btn-small" data-i18n="nav.book">Réserver</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-inner">
+        <p class="eyebrow" data-i18n="hero.eyebrow">Salon de coiffure · Bruxelles</p>
+        <h1 data-i18n-html="hero.title">L’art de la coiffure, <em>en toute élégance</em>.</h1>
+        <p class="lead" data-i18n="hero.lead"></p>
+        <div class="hero-actions">
+          <a href="#reserver" class="btn" data-i18n="hero.cta">Prendre rendez-vous</a>
+          <a href="#prestations" class="btn btn-ghost" data-i18n="hero.cta2">Découvrir nos prestations</a>
+        </div>
+      </div>
+      <div class="hero-monogram" aria-hidden="true">A</div>
+    </section>
+
+    <section id="maison" class="section">
+      <div class="container about">
+        <div>
+          <p class="eyebrow" data-i18n="about.eyebrow">La Maison</p>
+          <h2 data-i18n="about.title">Une parenthèse pensée pour vous</h2>
+        </div>
+        <div class="about-text">
+          <p data-i18n="about.p1"></p>
+          <p data-i18n="about.p2"></p>
+          <ul class="features">
+            <li data-i18n="about.f1">Diagnostic personnalisé</li>
+            <li data-i18n="about.f2">Soins haute couture</li>
+            <li data-i18n="about.f3">Coiffeuses expertes</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="prestations" class="section section-alt">
+      <div class="container">
+        <p class="eyebrow center" data-i18n="services.eyebrow">La Carte</p>
+        <h2 class="center" data-i18n="services.title">Nos prestations</h2>
+        <ul class="service-list" id="service-list"></ul>
+        <p class="note center" data-i18n="services.note"></p>
+      </div>
+    </section>
+
+    <section id="reserver" class="section">
+      <div class="container narrow">
+        <p class="eyebrow center" data-i18n="book.eyebrow">Réservation</p>
+        <h2 class="center" data-i18n="book.title">Prendre rendez-vous</h2>
+        <p class="lead center" data-i18n="book.lead"></p>
+
+        <form id="booking-form" class="booking" novalidate>
+          <fieldset>
+            <legend><span class="step">1</span><span data-i18n="book.step1">Prestation</span></legend>
+            <select id="service" name="service" required aria-label="Prestation">
+              <option value="" data-i18n="book.choose">Choisissez une prestation</option>
+            </select>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="step">2</span><span data-i18n="book.step2">Date & heure</span></legend>
+            <label class="field">
+              <span data-i18n="book.date">Date</span>
+              <input type="date" id="date" name="date" required>
+            </label>
+            <p class="label" data-i18n="book.slots">Créneaux disponibles</p>
+            <div id="slots" class="slots" role="radiogroup" aria-live="polite"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="step">3</span><span data-i18n="book.step3">Vos coordonnées</span></legend>
+            <div class="grid-2">
+              <label class="field"><span data-i18n="book.lastName">Nom</span>
+                <input name="lastName" autocomplete="family-name" required maxlength="80"></label>
+              <label class="field"><span data-i18n="book.firstName">Prénom</span>
+                <input name="firstName" autocomplete="given-name" required maxlength="80"></label>
+              <label class="field"><span data-i18n="book.email">E-mail</span>
+                <input name="email" type="email" autocomplete="email" required maxlength="120"></label>
+              <label class="field"><span data-i18n="book.phone">Téléphone</span>
+                <input name="phone" type="tel" autocomplete="tel" required maxlength="30" placeholder="+32 4xx xx xx xx"></label>
+            </div>
+            <label class="field"><span data-i18n="book.notes">Remarque (facultatif)</span>
+              <textarea name="notes" rows="2" maxlength="500" data-i18n-ph="book.notesPh"></textarea></label>
+            <label class="hp" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off"></label>
+          </fieldset>
+
+          <div id="summary" class="summary" hidden></div>
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+          <button type="submit" class="btn btn-block" id="submit-btn" data-i18n="book.submit">Confirmer le rendez-vous</button>
+          <p class="note center" data-i18n="book.consent"></p>
+        </form>
+
+        <div id="booking-success" class="success" hidden>
+          <div class="success-mark" aria-hidden="true">✓</div>
+          <h3 data-i18n="book.success.title">Merci, votre rendez-vous est confirmé</h3>
+          <p id="success-text"></p>
+          <button type="button" class="btn btn-ghost" id="book-again" data-i18n="book.success.again">Prendre un autre rendez-vous</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="horaires" class="section section-dark">
+      <div class="container hours">
+        <div>
+          <p class="eyebrow" data-i18n="hours.eyebrow">Nous rendre visite</p>
+          <h2 data-i18n="hours.title">Horaires & adresse</h2>
+          <address data-i18n-html="hours.address">Avenue Louise 000<br>1050 Bruxelles</address>
+          <p class="contact-line"><a href="tel:+3220000000">+32 2 000 00 00</a><br><a href="mailto:bonjour@maison-a.be">bonjour@maison-a.be</a></p>
+        </div>
+        <dl class="hours-list" id="hours-list"></dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>© <span id="year"></span> Maison A. <span data-i18n="footer.rights">Tous droits réservés.</span></span>
+      <a href="/admin" data-i18n="footer.admin">Espace salon</a>
+    </div>
+  </footer>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/site.js"></script>
+</body>
+</html>

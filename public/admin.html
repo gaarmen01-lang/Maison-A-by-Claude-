@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Maison A — Espace salon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body class="admin">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">Maison <span>A</span></a>
+      <span class="admin-badge" data-i18n="admin.title">Espace salon</span>
+      <div class="header-actions">
+        <div class="lang-switch" role="group" aria-label="Langue / Taal">
+          <button type="button" data-lang="fr">FR</button>
+          <button type="button" data-lang="nl">NL</button>
+        </div>
+        <button type="button" class="btn btn-small btn-ghost" id="logout" hidden data-i18n="admin.logout">Déconnexion</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container admin-main">
+    <!-- Connexion -->
+    <section id="login-view" class="login" hidden>
+      <h1 data-i18n="admin.login">Connexion</h1>
+      <form id="login-form" novalidate>
+        <label class="field"><span data-i18n="admin.password">Mot de passe</span>
+          <input type="password" name="password" autocomplete="current-password" required autofocus></label>
+        <p class="form-error" id="login-error" role="alert" hidden></p>
+        <button class="btn btn-block" type="submit" data-i18n="admin.signin">Se connecter</button>
+      </form>
+      <p class="center"><a href="/" data-i18n="admin.backToSite">Voir le site</a></p>
+    </section>
+
+    <!-- Tableau de bord -->
+    <section id="dashboard" hidden>
+      <nav class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="agenda" aria-selected="true" data-i18n="admin.tab.agenda">Agenda</button>
+        <button type="button" role="tab" data-tab="new" aria-selected="false" data-i18n="admin.tab.new">Nouveau rendez-vous</button>
+        <button type="button" role="tab" data-tab="revenue" aria-selected="false" data-i18n="admin.tab.revenue">Chiffre d’affaires</button>
+      </nav>
+
+      <!-- Agenda -->
+      <div class="tab-panel" data-panel="agenda">
+        <div class="toolbar">
+          <button type="button" class="icon-btn" id="day-prev" data-i18n-aria="admin.prev">‹</button>
+          <input type="date" id="agenda-date">
+          <button type="button" class="icon-btn" id="day-next" data-i18n-aria="admin.next">›</button>
+          <button type="button" class="btn btn-small btn-ghost" id="day-today" data-i18n="admin.today">Aujourd’hui</button>
+          <h2 class="toolbar-title" id="agenda-title"></h2>
+        </div>
+        <div class="kpis">
+          <div class="kpi kpi-accent"><span class="kpi-label" data-i18n="admin.dayRevenue">CA du jour</span><span class="kpi-value" id="kpi-day-revenue">—</span></div>
+          <div class="kpi"><span class="kpi-label" data-i18n="admin.dayCount">Rendez-vous</span><span class="kpi-value" id="kpi-day-count">—</span></div>
+          <div class="kpi"><span class="kpi-label" data-i18n="admin.dayCancelled">Annulés</span><span class="kpi-value" id="kpi-day-cancelled">—</span></div>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th data-i18n="admin.col.time">Heure</th>
+              <th data-i18n="admin.col.client">Cliente</th>
+              <th data-i18n="admin.col.service">Prestation</th>
+              <th data-i18n="admin.col.contact">Contact</th>
+              <th class="num" data-i18n="admin.col.price">Prix</th>
+              <th data-i18n="admin.col.status">Statut</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="agenda-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Nouveau rendez-vous -->
+      <div class="tab-panel" data-panel="new" hidden>
+        <form id="admin-form" class="booking admin-form" novalidate>
+          <p class="lead" data-i18n="admin.new.lead"></p>
+          <div class="grid-2">
+            <label class="field"><span data-i18n="book.lastName">Nom</span><input name="lastName" required maxlength="80"></label>
+            <label class="field"><span data-i18n="book.firstName">Prénom</span><input name="firstName" required maxlength="80"></label>
+            <label class="field"><span data-i18n="book.phone">Téléphone</span><input name="phone" type="tel" required maxlength="30"></label>
+            <label class="field"><span data-i18n="book.email">E-mail</span><input name="email" type="email" maxlength="120"></label>
+            <label class="field field-wide"><span data-i18n="book.step1">Prestation</span><select name="service" id="admin-service" required></select></label>
+            <label class="field"><span data-i18n="book.date">Date</span><input name="date" type="date" required></label>
+            <label class="field"><span data-i18n="admin.time">Heure</span><input name="time" type="time" step="300" required></label>
+            <label class="field"><span data-i18n="admin.price">Prix (€)</span><input name="price" type="number" min="0" step="0.01" data-i18n-ph="admin.pricePh"></label>
+          </div>
+          <label class="field"><span data-i18n="book.notes">Remarque</span><textarea name="notes" rows="2" maxlength="500"></textarea></label>
+          <p class="form-error" id="admin-error" role="alert" hidden></p>
+          <p class="form-ok" id="admin-ok" role="status" hidden></p>
+          <button class="btn" type="submit" data-i18n="admin.create">Enregistrer le rendez-vous</button>
+        </form>
+      </div>
+
+      <!-- Chiffre d'affaires -->
+      <div class="tab-panel" data-panel="revenue" hidden>
+        <div class="toolbar">
+          <label class="inline-field"><span data-i18n="admin.rev.from">Du</span><input type="date" id="rev-from"></label>
+          <label class="inline-field"><span data-i18n="admin.rev.to">Au</span><input type="date" id="rev-to"></label>
+          <div class="chips">
+            <button type="button" class="chip" data-range="week" data-i18n="admin.rev.week">7 derniers jours</button>
+            <button type="button" class="chip" data-range="month" data-i18n="admin.rev.month">Ce mois-ci</button>
+            <button type="button" class="chip" data-range="next" data-i18n="admin.rev.next">30 prochains jours</button>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi kpi-accent"><span class="kpi-label" data-i18n="admin.rev.total">CA total</span><span class="kpi-value" id="rev-total">—</span></div>
+          <div class="kpi"><span class="kpi-label" data-i18n="admin.rev.count">Rendez-vous</span><span class="kpi-value" id="rev-count">—</span></div>
+          <div class="kpi"><span class="kpi-label" data-i18n="admin.rev.avg">Panier moyen</span><span class="kpi-value" id="rev-avg">—</span></div>
+          <div class="kpi"><span class="kpi-label" data-i18n="admin.rev.best">Meilleur jour</span><span class="kpi-value kpi-small" id="rev-best">—</span></div>
+        </div>
+        <figure class="chart-card">
+          <figcaption data-i18n="admin.rev.chart">Chiffre d’affaires par jour</figcaption>
+          <div id="rev-chart" class="chart"></div>
+        </figure>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th data-i18n="admin.rev.date">Date</th>
+              <th class="num" data-i18n="admin.rev.count">Rendez-vous</th>
+              <th class="num" data-i18n="admin.rev.cancelled">Annulés</th>
+              <th class="num" data-i18n="admin.rev.revenue">CA</th>
+            </tr></thead>
+            <tbody id="rev-body"></tbody>
+            <tfoot><tr>
+              <th data-i18n="admin.rev.total">Total</th>
+              <th class="num" id="rev-foot-count"></th>
+              <th class="num" id="rev-foot-cancelled"></th>
+              <th class="num" id="rev-foot-total"></th>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p class="note" data-i18n="admin.rev.explain"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
