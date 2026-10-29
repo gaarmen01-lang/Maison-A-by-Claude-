@@ -64,7 +64,29 @@
           "value": "maison-a-claude.vercel.app"
         }
       ],
-      "destination": "https://maisona-salon.be/:path*",
+      "destination": "https://maisona-studio.be/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "maisona-salon.be"
+        }
+      ],
+      "destination": "https://maisona-studio.be/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.maisona-salon.be"
+        }
+      ],
+      "destination": "https://maisona-studio.be/:path*",
       "permanent": true
     }
   ]

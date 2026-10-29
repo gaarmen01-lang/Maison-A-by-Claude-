@@ -46,7 +46,7 @@ Sans `ADMIN_PASSWORD`, le mot de passe est `admin` (développement uniquement ; 
 | `DATABASE_URL` | Base PostgreSQL (Supabase) ; remplace le fichier JSON | — |
 | `SESSION_SECRET` | Clé de signature des sessions admin | dérivée du mot de passe |
 | `RESEND_API_KEY` | Clé API Resend ; sans elle, aucun e-mail n'est envoyé | — |
-| `MAIL_FROM` | Expéditeur des e-mails | `Maison A <maisona@maisona-salon.be>` |
+| `MAIL_FROM` | Expéditeur des e-mails | `Maison A <maisona@maisona-studio.be>` |
 | `MAIL_REPLY_TO` | Adresse qui reçoit les réponses des clientes | — |
 | `SALON_EMAIL` | Reçoit une copie de chaque réservation en ligne | — |
 
@@ -70,5 +70,5 @@ TEST_DATABASE_URL=postgres://… npm test    # mêmes tests sur PostgreSQL
 - **Vercel** sert les pages de `public/` ; les requêtes `/api/*` passent par la fonction `api/index.js` (région Paris, voir `vercel.json`).
 - **Supabase** stocke les rendez-vous (table créée par `supabase/migrations/001_appointments.sql`). La contrainte `no_double_booking` empêche en base toute double réservation d'une coiffeuse, même si deux clientes valident au même instant.
 - Le site se connecte avec un rôle dédié `maison_app` (droits limités à la table des rendez-vous) via le pooler de connexions Supabase.
-- **E-mails** : envoyés par [Resend](https://resend.com) depuis le domaine `maisona-salon.be` (domaine vérifié chez Resend par des enregistrements DNS). Un e-mail qui échoue n'annule jamais la réservation.
+- **E-mails** : envoyés par [Resend](https://resend.com) depuis le domaine `maisona-studio.be` (domaine vérifié chez Resend par des enregistrements DNS). Un e-mail qui échoue n'annule jamais la réservation.
 - Variables d'environnement du projet Vercel : `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`, et pour les e-mails `RESEND_API_KEY`, `MAIL_REPLY_TO`, `SALON_EMAIL`. Pour changer le mot de passe du salon : *Vercel → projet → Settings → Environment Variables → ADMIN_PASSWORD*, puis redéployer.

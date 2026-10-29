@@ -36,7 +36,7 @@ test('e-mail de confirmation en français', () => {
   assert.match(mail.html, /&lt;script&gt;/);
   assert.match(mail.ics, /DTSTART:20261105T090000Z/);
   assert.match(mail.ics, /DTEND:20261105T101500Z/);
-  assert.match(mail.ics, /UID:11111111-2222-3333-4444-555555555555@maisona-salon\.be/);
+  assert.match(mail.ics, /UID:11111111-2222-3333-4444-555555555555@maison1-studio\.be/);
 });
 
 test('e-mail de confirmation en néerlandais', () => {
@@ -54,7 +54,7 @@ test('envoi via Resend', async () => {
     return { ok: true, status: 200, text: async () => '{}' };
   };
   const mailer = createMailer({
-    apiKey: 're_test', from: 'Maison A <rendez-vous@maisona-salon.be>', replyTo: 'bonjour@maisona-salon.be',
+    apiKey: 're_test', from: 'Maison A <rendez-vous@maisona-studio.be>', replyTo: 'bonjour@maisona-studio.be',
     salonEmail: 'salon@example.com', config, fetchImpl: fakeFetch
   });
   assert.strictEqual(await mailer.sendConfirmation(appointment), true);
@@ -65,7 +65,7 @@ test('envoi via Resend', async () => {
   assert.strictEqual(client.opts.headers.Authorization, 'Bearer re_test');
   assert.strictEqual(client.opts.headers['Idempotency-Key'], 'confirmation-' + appointment.id);
   assert.deepStrictEqual(client.body.to, ['claire@example.com']);
-  assert.strictEqual(client.body.reply_to, 'bonjour@maisona-salon.be');
+  assert.strictEqual(client.body.reply_to, 'bonjour@maisona-studio.be');
   assert.strictEqual(client.body.attachments[0].filename, 'maison-a-rendez-vous.ics');
   assert.match(Buffer.from(client.body.attachments[0].content, 'base64').toString(), /BEGIN:VCALENDAR/);
   assert.deepStrictEqual(salon.body.to, ['salon@example.com']);
