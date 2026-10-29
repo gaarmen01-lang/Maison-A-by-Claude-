@@ -14,6 +14,12 @@ Site vitrine et de réservation pour un salon de coiffure féminin premium, en *
 - **Nouveau rendez-vous** : le salon fixe lui-même un rendez-vous (téléphone, comptoir), e-mail facultatif, prix ajustable, possibilité de forcer un créneau déjà complet.
 - **Chiffre d'affaires** : CA réalisé par jour grâce aux rendez-vous confirmés, sur la période choisie (7 derniers jours, mois en cours, 30 prochains jours ou dates libres), avec graphique, total, nombre de rendez-vous, panier moyen et meilleur jour. Les rendez-vous annulés ne sont pas comptés.
 
+## Pensé pour le téléphone
+
+- **Clientes** : barre « Appeler / Réserver » fixée en bas de l'écran, choix du jour dans un bandeau à faire défiler au doigt, gros créneaux faciles à toucher, claviers adaptés (e-mail, téléphone) et passage automatique à l'étape suivante.
+- **Salon** : barre d'onglets en bas comme une application, rendez-vous affichés en cartes avec bouton d'appel direct, CA lisible sans défilement horizontal.
+- **Installer l'espace salon comme une application** : ouvrir `/admin` sur le téléphone, puis *Partager → Sur l'écran d'accueil* (iPhone) ou *⋮ → Ajouter à l'écran d'accueil* (Android).
+
 ## Démarrer
 
 Node.js 18 ou plus récent, aucune dépendance à installer.

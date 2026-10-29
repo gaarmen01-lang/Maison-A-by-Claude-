@@ -84,6 +84,7 @@
       activeTab = tab.dataset.tab;
       document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b === tab)));
       document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== activeTab; });
+      window.scrollTo(0, 0);
       refresh();
     });
   });
@@ -149,11 +150,11 @@
     body.replaceChildren(...appointments.map(a => {
       const cancelled = a.status === 'cancelled';
       const contact = el('td', { class: 'contact' }, [
-        el('a', { href: 'tel:' + a.phone.replace(/[^+0-9]/g, ''), text: a.phone })
+        el('a', { class: 'phone', href: 'tel:' + a.phone.replace(/[^+0-9]/g, ''), text: a.phone })
       ]);
       if (a.email) contact.append(el('br'), el('a', { href: 'mailto:' + a.email, text: a.email }));
 
-      const client = el('td', {}, [
+      const client = el('td', { class: 'client' }, [
         el('strong', { text: `${a.firstName} ${a.lastName}` }),
         el('span', { class: 'tag', text: t('admin.source.' + a.source) })
       ]);
@@ -168,10 +169,10 @@
       return el('tr', { class: cancelled ? 'is-cancelled' : '' }, [
         el('td', { class: 'time' }, [el('strong', { text: a.time }), el('small', { text: '→ ' + end })]),
         client,
-        el('td', { text: a.serviceName[I18n.lang] }),
+        el('td', { class: 'service', text: a.serviceName[I18n.lang] }),
         contact,
-        el('td', { class: 'num', text: I18n.formatPrice(a.price) }),
-        el('td', {}, [el('span', { class: 'status status-' + a.status, text: t('admin.status.' + a.status) })]),
+        el('td', { class: 'num price', text: I18n.formatPrice(a.price) }),
+        el('td', { class: 'status-cell' }, [el('span', { class: 'status status-' + a.status, text: t('admin.status.' + a.status) })]),
         el('td', { class: 'actions' }, [
           cancelled
             ? actionButton(t('admin.restore'), '', () => changeStatus(a, 'confirmed'))
@@ -284,7 +285,10 @@
     renderChart(data.days);
 
     $('rev-body').replaceChildren(...data.days.map(d => {
-      const link = el('a', { href: '#', text: I18n.formatDate(d.date, { weekday: 'long', day: 'numeric', month: 'long' }) });
+      const link = el('a', { href: '#' }, [
+        el('span', { class: 'date-long', text: I18n.formatDate(d.date, { weekday: 'long', day: 'numeric', month: 'long' }) }),
+        el('span', { class: 'date-short', text: I18n.formatDate(d.date, { weekday: 'short', day: 'numeric', month: 'short' }) })
+      ]);
       link.addEventListener('click', e => {
         e.preventDefault();
         agendaDate = d.date;
@@ -294,7 +298,7 @@
       return el('tr', { class: d.revenue ? '' : 'is-empty' }, [
         el('td', {}, [link]),
         el('td', { class: 'num', text: String(d.appointments) }),
-        el('td', { class: 'num', text: String(d.cancelled) }),
+        el('td', { class: 'num col-cancelled', text: String(d.cancelled) }),
         el('td', { class: 'num strong', text: I18n.formatPrice(d.revenue) })
       ]);
     }));

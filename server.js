@@ -24,7 +24,8 @@ const MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
-  '.webp': 'image/webp'
+  '.webp': 'image/webp',
+  '.webmanifest': 'application/manifest+json'
 };
 
 const SECURITY_HEADERS = {

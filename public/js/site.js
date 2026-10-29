@@ -5,7 +5,7 @@
   const { t } = I18n;
   const form = document.getElementById('booking-form');
   const serviceSelect = document.getElementById('service');
-  const dateInput = document.getElementById('date');
+  const daysBox = document.getElementById('days');
   const slotsBox = document.getElementById('slots');
   const summary = document.getElementById('summary');
   const errorBox = document.getElementById('form-error');
@@ -13,6 +13,7 @@
   const success = document.getElementById('booking-success');
 
   let salon = null;
+  let selectedDate = null;
   let selectedTime = null;
   let slotsRequest = 0;
 
@@ -79,7 +80,7 @@
 
   function renderSummary() {
     const s = serviceById(serviceSelect.value);
-    if (!s || !dateInput.value || !selectedTime) {
+    if (!s || !selectedDate || !selectedTime) {
       summary.hidden = true;
       return;
     }
@@ -87,8 +88,41 @@
     summary.replaceChildren(
       el('p', { class: 'label', text: t('book.summary') }),
       el('p', { class: 'summary-main', text: `${s.name[I18n.lang]} — ${I18n.formatPrice(s.price)}` }),
-      el('p', { text: `${I18n.formatDate(dateInput.value)} · ${selectedTime} (${s.duration} ${t('min')})` })
+      el('p', { text: `${I18n.formatDate(selectedDate)} · ${selectedTime} (${s.duration} ${t('min')})` })
     );
+  }
+
+  function addDays(date, n) {
+    const d = new Date(date + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Bandeau de jours à faire défiler au doigt (plus pratique que le calendrier natif sur mobile).
+  function renderDays() {
+    const days = [];
+    for (let i = 0; i <= salon.maxDaysAhead; i++) days.push(addDays(salon.today, i));
+    daysBox.replaceChildren(...days.map((date, i) => {
+      const day = new Date(date + 'T12:00:00');
+      const closed = !salon.openingHours[day.getDay()];
+      const btn = el('button', {
+        type: 'button', class: 'day', role: 'radio',
+        'aria-checked': String(date === selectedDate),
+        'aria-label': I18n.formatDate(date) + (closed ? ' — ' + t('hours.closed') : '')
+      }, [
+        el('span', { class: 'day-name', text: I18n.formatDate(date, { weekday: 'short' }).replace('.', '') }),
+        el('span', { class: 'day-num', text: String(day.getDate()) }),
+        el('span', { class: 'day-month', text: I18n.formatDate(date, { month: 'short' }).replace('.', '') })
+      ]);
+      if (closed) btn.disabled = true;
+      btn.addEventListener('click', () => {
+        daysBox.querySelectorAll('.day').forEach(b => b.setAttribute('aria-checked', 'false'));
+        btn.setAttribute('aria-checked', 'true');
+        selectedDate = date;
+        onSelectionChange();
+      });
+      return btn;
+    }));
   }
 
   function slotMessage(key) {
@@ -99,7 +133,7 @@
     selectedTime = null;
     renderSummary();
     const service = serviceSelect.value;
-    const date = dateInput.value;
+    const date = selectedDate;
     if (!service || !date) return slotMessage('book.pickDateFirst');
 
     const day = new Date(date + 'T12:00:00').getDay();
@@ -123,6 +157,10 @@
           btn.setAttribute('aria-checked', 'true');
           selectedTime = slot.time;
           renderSummary();
+          // Sur téléphone, on amène directement la cliente à l'étape suivante.
+          if (window.matchMedia('(max-width: 720px)').matches) {
+            form.querySelectorAll('fieldset')[2].scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         });
         return btn;
       }));
@@ -143,6 +181,7 @@
     (fields || []).forEach(name => {
       const input = form.elements[name];
       if (input && input.classList) input.classList.add('invalid');
+      if (name === 'date') daysBox.classList.add('invalid');
       if (name === 'time') slotsBox.classList.add('invalid');
     });
   }
@@ -151,7 +190,9 @@
     e.preventDefault();
     errorBox.hidden = true;
     slotsBox.classList.remove('invalid');
+    daysBox.classList.remove('invalid');
     const data = Object.fromEntries(new FormData(form));
+    data.date = selectedDate || '';
     data.time = selectedTime || '';
     data.lang = I18n.lang;
 
@@ -191,19 +232,21 @@
 
   document.getElementById('book-again').addEventListener('click', () => {
     form.reset();
+    selectedDate = null;
+    renderDays();
     form.hidden = false;
     success.hidden = true;
     loadSlots();
   });
 
   serviceSelect.addEventListener('change', onSelectionChange);
-  dateInput.addEventListener('change', onSelectionChange);
   form.addEventListener('input', e => e.target.classList && e.target.classList.remove('invalid'));
 
   I18n.onChange(() => {
     if (!salon) return;
     renderServices();
     renderHours();
+    renderDays();
     renderSummary();
     if (!selectedTime) loadSlots();
   });
@@ -212,12 +255,18 @@
     .then(r => r.json())
     .then(data => {
       salon = data;
-      dateInput.min = data.today;
-      const max = new Date(data.today + 'T12:00:00');
-      max.setDate(max.getDate() + data.maxDaysAhead);
-      dateInput.max = max.toISOString().slice(0, 10);
       I18n.apply();
     });
+
+  // Barre « Appeler / Réserver » en bas de l'écran sur mobile, masquée quand elle ferait doublon.
+  const cta = document.getElementById('mobile-cta');
+  const hidingSections = new Set();
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => (e.isIntersecting ? hidingSections.add(e.target) : hidingSections.delete(e.target)));
+    cta.classList.toggle('is-hidden', hidingSections.size > 0);
+  });
+  observer.observe(document.querySelector('.hero-actions'));
+  observer.observe(document.getElementById('reserver'));
 
   I18n.apply();
 })();
