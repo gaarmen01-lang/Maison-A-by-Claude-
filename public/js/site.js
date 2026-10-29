@@ -259,6 +259,9 @@
         stylist: body.stylistName ? body.stylistName[I18n.lang] : '',
         service: body.serviceName[I18n.lang]
       });
+      const emailNote = document.getElementById('success-email');
+      emailNote.textContent = body.emailSent ? t('book.success.email', { email: data.email }) : '';
+      emailNote.hidden = !body.emailSent;
       form.hidden = true;
       success.hidden = false;
       success.scrollIntoView({ behavior: 'smooth', block: 'center' });

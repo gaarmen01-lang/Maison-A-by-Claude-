@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const config = require('./lib/config');
 const { FileStore } = require('./lib/store');
 const S = require('./lib/schedule');
+const { mailerFromEnv } = require('./lib/mailer');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -49,7 +50,7 @@ class HttpError extends Error {
   }
 }
 
-function createApp({ store, adminPassword, sessionSecret, now = () => new Date() }) {
+function createApp({ store, adminPassword, sessionSecret, mailer = mailerFromEnv({}, config), now = () => new Date() }) {
   // Sessions sans état serveur (indispensable sur Vercel) : jeton signé par HMAC.
   const sessionKey = crypto.createHash('sha256').update(sessionSecret || adminPassword).digest();
   const loginFailures = new Map();
@@ -277,7 +278,9 @@ function createApp({ store, adminPassword, sessionSecret, now = () => new Date()
       const fields = validateAppointment(body, { admin: false });
       const appointment = await placeAppointment(fields, { admin: false },
         stylist => store.create({ ...fields, stylist, source: 'online' }));
-      return send(res, 201, publicAppointment(appointment));
+      // Le rendez-vous est enregistré : un e-mail qui échoue ne l'annule pas.
+      const [emailSent] = await Promise.all([mailer.sendConfirmation(appointment), mailer.notifySalon(appointment)]);
+      return send(res, 201, { ...publicAppointment(appointment), emailSent });
     }
 
     // ----- administration -----
@@ -328,7 +331,8 @@ function createApp({ store, adminPassword, sessionSecret, now = () => new Date()
       const fields = validateAppointment(body, { admin: true });
       const appointment = await placeAppointment(fields, { admin: true },
         stylist => store.create({ ...fields, stylist, source: 'admin' }));
-      return send(res, 201, appointment);
+      const emailSent = await mailer.sendConfirmation(appointment);
+      return send(res, 201, { ...appointment, emailSent });
     }
 
     const match = url.pathname.match(/^\/api\/admin\/appointments\/([0-9a-f-]{36})$/);
@@ -454,7 +458,9 @@ if (require.main === module) {
   const store = process.env.DATABASE_URL
     ? new (require('./lib/pg-store'))(process.env.DATABASE_URL)
     : new FileStore(process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'));
-  const app = createApp({ store, adminPassword, sessionSecret: process.env.SESSION_SECRET });
+  const app = createApp({
+    store, adminPassword, sessionSecret: process.env.SESSION_SECRET, mailer: mailerFromEnv(process.env, config)
+  });
   const port = Number(process.env.PORT) || 3000;
   http.createServer(app.handler).listen(port, () => {
     console.log(`Maison A — http://localhost:${port}  (admin : http://localhost:${port}/admin)`);

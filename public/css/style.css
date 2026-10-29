@@ -197,6 +197,7 @@ textarea { resize: vertical; }
   display: grid; place-items: center; color: var(--gold); font-size: 1.6rem;
 }
 .success p { color: var(--ink-soft); margin-bottom: 2rem; }
+.success .success-email { margin-top: -1.2rem; font-size: .92rem; color: var(--gold-dark); }
 
 /* ---------- horaires ---------- */
 .hours { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }

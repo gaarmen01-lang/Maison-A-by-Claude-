@@ -232,7 +232,8 @@
       const created = await api('/api/admin/appointments', { method: 'POST', body: data });
       form.reset();
       form.date.value = created.date;
-      $('admin-ok').textContent = `${t('admin.created')} ${I18n.formatDate(created.date)} · ${created.time} — ${created.firstName} ${created.lastName} · ${stylistName(created.stylist)}`;
+      $('admin-ok').textContent = `${t('admin.created')} ${I18n.formatDate(created.date)} · ${created.time} — ${created.firstName} ${created.lastName} · ${stylistName(created.stylist)}` +
+        (created.emailSent ? ` ${t('admin.emailSent')}` : '');
       $('admin-ok').hidden = false;
       agendaDate = created.date;
       $('agenda-date').value = created.date;

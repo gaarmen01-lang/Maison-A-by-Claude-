@@ -9,6 +9,7 @@ Site vitrine et de réservation pour un salon de coiffure féminin premium, en *
 - Bascule FR / NL (mémorisée dans le navigateur, détection automatique de la langue).
 - Prise de rendez-vous en ligne : prestation, **choix de la coiffeuse** (Employée 1, Employée 2 ou « Sans préférence »), date, créneau horaire (seuls les créneaux libres de la coiffeuse choisie sont proposés), nom, prénom, e-mail et téléphone.
 - « Sans préférence » : la coiffeuse libre la moins chargée ce jour-là est attribuée automatiquement, et son nom est affiché dans la confirmation.
+- **E-mail de confirmation** envoyé à la cliente dans sa langue (FR/NL), avec un fichier agenda (.ics) et un rappel 24 h avant. Le salon peut recevoir une copie de chaque réservation en ligne.
 
 **Espace administrateur** (`/admin`, protégé par mot de passe)
 - **Agenda** jour par jour : liste des rendez-vous avec la coiffeuse (mention « Demandée » quand la cliente l'a choisie), filtre par coiffeuse, coordonnées des clientes, annulation / rétablissement / suppression, CA du jour.
@@ -44,12 +45,16 @@ Sans `ADMIN_PASSWORD`, le mot de passe est `admin` (développement uniquement ; 
 | `DATA_FILE` | Fichier de données des rendez-vous (sans `DATABASE_URL`) | `data/db.json` |
 | `DATABASE_URL` | Base PostgreSQL (Supabase) ; remplace le fichier JSON | — |
 | `SESSION_SECRET` | Clé de signature des sessions admin | dérivée du mot de passe |
+| `RESEND_API_KEY` | Clé API Resend ; sans elle, aucun e-mail n'est envoyé | — |
+| `MAIL_FROM` | Expéditeur des e-mails | `Maison A <rendez-vous@maisona-salon.be>` |
+| `MAIL_REPLY_TO` | Adresse qui reçoit les réponses des clientes | — |
+| `SALON_EMAIL` | Reçoit une copie de chaque réservation en ligne | — |
 
 Le fuseau horaire du salon (`Europe/Brussels`) se règle dans `lib/config.js`.
 
 ## Personnaliser
 
-Tout se règle dans [`lib/config.js`](lib/config.js) : **coiffeuses** (`staff` : remplacez « Employée 1 / 2 » par les vrais prénoms, ajoutez-en une en copiant un bloc), prestations (noms FR/NL, descriptions, durée, prix), horaires d'ouverture, intervalle entre créneaux, délai minimum et horizon de réservation.
+Tout se règle dans [`lib/config.js`](lib/config.js) : **coordonnées** reprises dans les e-mails (`contact`), **coiffeuses** (`staff` : remplacez « Employée 1 / 2 » par les vrais prénoms, ajoutez-en une en copiant un bloc), prestations (noms FR/NL, descriptions, durée, prix), horaires d'ouverture, intervalle entre créneaux, délai minimum et horizon de réservation.
 
 Les textes du site sont dans [`public/js/i18n.js`](public/js/i18n.js) ; l'adresse et le téléphone dans [`public/index.html`](public/index.html) (section « Horaires ») et dans les clés `hours.address` de `i18n.js`.
 
@@ -65,4 +70,5 @@ TEST_DATABASE_URL=postgres://… npm test    # mêmes tests sur PostgreSQL
 - **Vercel** sert les pages de `public/` ; les requêtes `/api/*` passent par la fonction `api/index.js` (région Paris, voir `vercel.json`).
 - **Supabase** stocke les rendez-vous (table créée par `supabase/migrations/001_appointments.sql`). La contrainte `no_double_booking` empêche en base toute double réservation d'une coiffeuse, même si deux clientes valident au même instant.
 - Le site se connecte avec un rôle dédié `maison_app` (droits limités à la table des rendez-vous) via le pooler de connexions Supabase.
-- Variables d'environnement du projet Vercel : `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`. Pour changer le mot de passe du salon : *Vercel → projet → Settings → Environment Variables → ADMIN_PASSWORD*, puis redéployer.
+- **E-mails** : envoyés par [Resend](https://resend.com) depuis le domaine `maisona-salon.be` (domaine vérifié chez Resend par des enregistrements DNS). Un e-mail qui échoue n'annule jamais la réservation.
+- Variables d'environnement du projet Vercel : `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`, et pour les e-mails `RESEND_API_KEY`, `MAIL_REPLY_TO`, `SALON_EMAIL`. Pour changer le mot de passe du salon : *Vercel → projet → Settings → Environment Variables → ADMIN_PASSWORD*, puis redéployer.

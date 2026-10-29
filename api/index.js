@@ -5,6 +5,8 @@
 
 const { createApp } = require('../server');
 const PgStore = require('../lib/pg-store');
+const config = require('../lib/config');
+const { mailerFromEnv } = require('../lib/mailer');
 
 let app;
 
@@ -19,7 +21,8 @@ module.exports = (req, res) => {
     app = createApp({
       store: new PgStore(DATABASE_URL),
       adminPassword: ADMIN_PASSWORD,
-      sessionSecret: SESSION_SECRET
+      sessionSecret: SESSION_SECRET,
+      mailer: mailerFromEnv(process.env, config)
     });
   }
   return app.handler(req, res);
