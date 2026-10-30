@@ -229,11 +229,12 @@ body.admin { background: var(--ivory); font-size: 16px; }
 .login { max-width: 400px; margin: 8vh auto 0; background: var(--paper); border: 1px solid var(--line); padding: 44px 40px 28px; }
 .login h1 { font-size: 2.4rem; text-align: center; margin-bottom: 1.6rem; }
 
-.tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--line); margin-bottom: 32px; overflow-x: auto; }
+.tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--line); margin-bottom: 32px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
 .tabs button {
   background: none; border: 0; padding: 14px 0; cursor: pointer; white-space: nowrap;
   font: 400 .78rem var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
 }
 .tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--gold); }
 
