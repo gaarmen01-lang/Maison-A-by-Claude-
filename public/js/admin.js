@@ -9,6 +9,8 @@
   let today = null;
   let agendaDate = null;
   let activeTab = 'agenda';
+  let agendaView = 'calendar';
+  let miniMonth = null; // mois affiché dans le mini-calendrier (YYYY-MM)
 
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
@@ -99,6 +101,7 @@
 
   function setAgendaDate(date) {
     agendaDate = date;
+    miniMonth = date.slice(0, 7);
     $('agenda-date').value = date;
     loadAgenda();
   }
@@ -118,6 +121,7 @@
     if (status === 'cancelled' && !confirm(t('admin.confirmCancel'))) return;
     try {
       await api('/api/admin/appointments/' + a.id, { method: 'PATCH', body: { status } });
+      closeDialog();
     } catch (err) {
       alert(errorText(err));
     }
@@ -126,9 +130,253 @@
 
   async function removeAppointment(a) {
     if (!confirm(t('admin.confirmDelete'))) return;
-    await api('/api/admin/appointments/' + a.id, { method: 'DELETE' }).catch(err => alert(errorText(err)));
+    await api('/api/admin/appointments/' + a.id, { method: 'DELETE' })
+      .then(closeDialog)
+      .catch(err => alert(errorText(err)));
     loadAgenda();
   }
+
+  // ---------- calendrier (vue planning) ----------
+
+  // Couleur douce par prestation, dans la palette du salon.
+  const SERVICE_COLORS = ['#c98f86', '#d9b48f', '#9fb3a2', '#8e9aaf', '#b98b6e', '#c4a5b8', '#a7a37e'];
+
+  function serviceColor(id) {
+    const index = salon.services.findIndex(s => s.id === id);
+    return SERVICE_COLORS[(index < 0 ? 0 : index) % SERVICE_COLORS.length];
+  }
+
+  function toMinutes(time) {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function toTime(minutes) {
+    return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+  }
+
+  function weekdayOf(date) {
+    return new Date(date + 'T12:00:00').getDay();
+  }
+
+  function nowMinutes() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date());
+    const get = type => Number(parts.find(p => p.type === type).value);
+    return get('hour') * 60 + get('minute');
+  }
+
+  function renderPlanner(appointments, filter) {
+    const hours = salon.openingHours[weekdayOf(agendaDate)];
+    const planner = $('planner');
+    const staff = filter ? salon.staff.filter(s => s.id === filter) : salon.staff;
+    // Plage affichée : heures d'ouverture arrondies à l'heure (ou 9h-19h si fermé), élargie si un rendez-vous déborde.
+    let start = hours ? Math.floor(toMinutes(hours[0]) / 60) * 60 : 9 * 60;
+    let end = hours ? Math.ceil(toMinutes(hours[1]) / 60) * 60 : 19 * 60;
+    appointments.forEach(a => {
+      start = Math.min(start, Math.floor(toMinutes(a.time) / 60) * 60);
+      end = Math.max(end, Math.ceil((toMinutes(a.time) + a.duration) / 60) * 60);
+    });
+    const ppm = window.matchMedia('(max-width: 720px)').matches ? 1.3 : 1.6; // pixels par minute
+    const height = (end - start) * ppm;
+    planner.style.setProperty('--cols', staff.length);
+    planner.style.setProperty('--hour-h', 60 * ppm + 'px');
+
+    const head = el('div', { class: 'planner-head' }, [
+      el('div', { class: 'planner-corner' }),
+      ...staff.map(s => {
+        const own = appointments.filter(a => a.stylist === s.id);
+        return el('div', { class: 'planner-staff' }, [
+          el('span', { class: 'staff-avatar', 'aria-hidden': 'true', text: s.name[I18n.lang].trim().charAt(0) }),
+          el('span', { class: 'staff-text' }, [
+            el('strong', { text: s.name[I18n.lang] }),
+            el('small', { text: `${own.length} · ${I18n.formatPrice(own.reduce((sum, a) => sum + a.price, 0))}` })
+          ])
+        ]);
+      })
+    ]);
+
+    const axis = el('div', { class: 'planner-axis' });
+    axis.style.height = height + 'px';
+    for (let m = start; m < end; m += 60) {
+      const label = el('span', { text: toTime(m) });
+      label.style.top = (m - start) * ppm + 'px';
+      axis.append(label);
+    }
+
+    const columns = staff.map(s => {
+      const col = el('div', { class: 'planner-col', 'data-stylist': s.id });
+      col.style.height = height + 'px';
+      // Zones fermées (avant l'ouverture / après la fermeture) grisées.
+      if (!hours) {
+        col.classList.add('is-closed');
+      } else {
+        const before = toMinutes(hours[0]) - start;
+        const after = end - toMinutes(hours[1]);
+        const off = (edge, minutes) => {
+          const zone = el('div', { class: 'planner-off' });
+          zone.style[edge] = '0';
+          zone.style.height = minutes * ppm + 'px';
+          col.append(zone);
+        };
+        if (before > 0) off('top', before);
+        if (after > 0) off('bottom', after);
+      }
+
+      const ghost = el('div', { class: 'planner-ghost', 'aria-hidden': 'true' });
+      col.append(ghost);
+      const slotAt = e => {
+        const y = e.clientY - col.getBoundingClientRect().top;
+        return Math.min(end - 15, start + Math.floor(y / ppm / 15) * 15);
+      };
+      col.addEventListener('mousemove', e => {
+        if (e.target.closest('.planner-appt')) { ghost.hidden = true; return; }
+        const m = slotAt(e);
+        ghost.hidden = false;
+        ghost.style.top = (m - start) * ppm + 'px';
+        ghost.style.height = 30 * ppm + 'px';
+        ghost.textContent = '+ ' + toTime(m);
+      });
+      col.addEventListener('mouseleave', () => { ghost.hidden = true; });
+      col.addEventListener('click', e => {
+        if (e.target.closest('.planner-appt')) return;
+        openNewAppointment(s.id, toTime(slotAt(e)));
+      });
+
+      appointments.filter(a => a.stylist === s.id).forEach(a => {
+        const top = (toMinutes(a.time) - start) * ppm;
+        const block = el('button', { type: 'button', class: 'planner-appt' }, [
+          el('span', { class: 'appt-time', text: `${a.time} – ${toTime(toMinutes(a.time) + a.duration)}` }),
+          el('strong', { class: 'appt-client', text: `${a.firstName} ${a.lastName}` }),
+          el('span', { class: 'appt-service', text: a.serviceName[I18n.lang] })
+        ]);
+        if (a.notes) block.append(el('span', { class: 'appt-note', text: a.notes }));
+        block.style.top = top + 'px';
+        block.style.height = Math.max(a.duration * ppm - 2, 22) + 'px';
+        block.style.setProperty('--appt', serviceColor(a.service));
+        if (a.duration * ppm < 56) block.classList.add('is-short');
+        block.addEventListener('click', () => openAppointment(a));
+        col.append(block);
+      });
+      return col;
+    });
+
+    const body = el('div', { class: 'planner-body' }, [axis, ...columns]);
+    if (agendaDate === today && hours) {
+      const m = nowMinutes();
+      if (m >= start && m <= end) {
+        const line = el('div', { class: 'planner-now', 'aria-hidden': 'true' });
+        line.style.top = (m - start) * ppm + 'px';
+        body.append(line);
+      }
+    }
+    planner.replaceChildren(...(hours ? [] : [el('p', { class: 'planner-closed', text: t('admin.closedDay') })]), head, body);
+  }
+
+  // Ouvre le formulaire « Nouveau rendez-vous » prérempli depuis un créneau libre.
+  function openNewAppointment(stylist, time) {
+    document.querySelector('[data-tab="new"]').click();
+    const form = $('admin-form');
+    form.date.value = agendaDate;
+    form.time.value = time;
+    form.stylist.value = stylist;
+    $('admin-ok').hidden = true;
+    $('admin-error').hidden = true;
+    form.lastName.focus();
+  }
+
+  // ---------- fiche rendez-vous ----------
+
+  function closeDialog() {
+    if ($('appt-dialog').open) $('appt-dialog').close();
+  }
+
+  function openAppointment(a) {
+    const end = toTime(toMinutes(a.time) + a.duration);
+    $('appt-swatch').style.background = serviceColor(a.service);
+    $('appt-time').textContent = `${I18n.formatDate(a.date, { weekday: 'long', day: 'numeric', month: 'long' })} · ${a.time} – ${end}`;
+    $('appt-client').textContent = `${a.firstName} ${a.lastName}`;
+    const rows = [
+      [t('admin.col.service'), a.serviceName[I18n.lang]],
+      [t('admin.col.stylist'), stylistName(a.stylist) + (a.source === 'online' && a.stylistRequested ? ` (${t('admin.requested')})` : '')],
+      [t('admin.col.price'), I18n.formatPrice(a.price)],
+      [t('admin.col.status'), `${t('admin.status.' + a.status)} · ${t('admin.source.' + a.source)}`]
+    ];
+    if (a.notes) rows.push([t('book.notes'), a.notes]);
+    $('appt-details').replaceChildren(...rows.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })]));
+
+    const contact = [el('a', { class: 'btn btn-small', href: 'tel:' + a.phone.replace(/[^+0-9]/g, ''), text: `${t('admin.call')} · ${a.phone}` })];
+    if (a.email) contact.push(el('a', { class: 'btn btn-small btn-ghost', href: 'mailto:' + a.email, text: a.email }));
+    $('appt-contact').replaceChildren(...contact);
+
+    $('appt-actions').replaceChildren(
+      a.status === 'cancelled'
+        ? actionButton(t('admin.restore'), '', () => changeStatus(a, 'confirmed'))
+        : actionButton(t('admin.cancel'), '', () => changeStatus(a, 'cancelled')),
+      actionButton(t('admin.delete'), 'danger', () => removeAppointment(a))
+    );
+    $('appt-dialog').showModal();
+  }
+
+  $('appt-close').addEventListener('click', closeDialog);
+  // Clic sur le fond assombri : fermeture.
+  $('appt-dialog').addEventListener('click', e => { if (e.target === $('appt-dialog')) closeDialog(); });
+
+  // ---------- mini-calendrier mensuel ----------
+
+  async function renderMiniCal() {
+    const box = $('mini-cal');
+    if (getComputedStyle(box).display === 'none') return;
+    const month = miniMonth || agendaDate.slice(0, 7);
+    miniMonth = month;
+    const [y, m] = month.split('-').map(Number);
+    const first = `${month}-01`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const last = `${month}-${String(daysInMonth).padStart(2, '0')}`;
+    const { appointments } = await api(`/api/admin/appointments?from=${first}&to=${last}`).catch(() => ({ appointments: [] }));
+    const busy = new Set(appointments.filter(a => a.status === 'confirmed').map(a => a.date));
+
+    const shift = month => {
+      const d = new Date(y, m - 1 + month, 1, 12);
+      miniMonth = d.toISOString().slice(0, 7);
+      renderMiniCal();
+    };
+    const prev = el('button', { type: 'button', class: 'mini-nav', 'aria-label': t('admin.prev'), text: '«' });
+    const next = el('button', { type: 'button', class: 'mini-nav', 'aria-label': t('admin.next'), text: '»' });
+    prev.addEventListener('click', () => shift(-1));
+    next.addEventListener('click', () => shift(1));
+    const title = new Intl.DateTimeFormat(I18n.locale(), { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1));
+
+    // En-têtes lundi → dimanche.
+    const names = [1, 2, 3, 4, 5, 6, 0].map(d =>
+      el('span', { class: 'mini-dow', text: I18n.formatDate(`2026-11-0${d === 0 ? 8 : d + 1}`, { weekday: 'narrow' }) }));
+    const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+    const cells = Array.from({ length: offset }, () => el('span'));
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${month}-${String(d).padStart(2, '0')}`;
+      const cls = ['mini-day'];
+      if (date === agendaDate) cls.push('is-selected');
+      if (date === today) cls.push('is-today');
+      if (!salon.openingHours[weekdayOf(date)]) cls.push('is-closed');
+      if (busy.has(date)) cls.push('has-appts');
+      const btn = el('button', { type: 'button', class: cls.join(' '), text: String(d) });
+      btn.addEventListener('click', () => setAgendaDate(date));
+      cells.push(btn);
+    }
+    box.replaceChildren(
+      el('div', { class: 'mini-head' }, [prev, el('strong', { text: title }), next]),
+      el('div', { class: 'mini-grid' }, [...names, ...cells])
+    );
+  }
+
+  document.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      agendaView = btn.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      loadAgenda();
+    });
+  });
 
   function stylistName(id) {
     const s = salon.staff.find(x => x.id === id);
@@ -165,6 +413,17 @@
     $('kpi-day-count').textContent = confirmed.length;
     $('kpi-day-cancelled').textContent = appointments.length - confirmed.length;
 
+    $('planner').hidden = agendaView !== 'calendar';
+    $('agenda-list').hidden = agendaView !== 'list';
+    const cancelled = appointments.length - confirmed.length;
+    $('planner-note').hidden = agendaView !== 'calendar' || !cancelled;
+    $('planner-note').textContent = t('admin.cancelledHidden', { n: cancelled });
+    if (agendaView === 'calendar') renderPlanner(confirmed, filter);
+    else renderList(appointments);
+    renderMiniCal();
+  }
+
+  function renderList(appointments) {
     const body = $('agenda-body');
     if (!appointments.length) {
       body.replaceChildren(el('tr', {}, [el('td', { colspan: '8', class: 'empty', text: t('admin.noAppointments') })]));

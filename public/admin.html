@@ -54,12 +54,19 @@
 
       <!-- Agenda -->
       <div class="tab-panel" data-panel="agenda">
+        <div class="agenda-layout">
+          <aside class="mini-cal" id="mini-cal" aria-label="Calendrier"></aside>
+          <div class="agenda-main">
         <div class="toolbar">
           <button type="button" class="icon-btn" id="day-prev" data-i18n-aria="admin.prev">‹</button>
           <input type="date" id="agenda-date">
           <button type="button" class="icon-btn" id="day-next" data-i18n-aria="admin.next">›</button>
           <button type="button" class="btn btn-small btn-ghost" id="day-today" data-i18n="admin.today">Aujourd’hui</button>
           <select id="agenda-stylist" class="toolbar-select" data-i18n-aria="admin.col.stylist"></select>
+          <div class="view-switch" role="group">
+            <button type="button" data-view="calendar" aria-pressed="true" data-i18n="admin.view.calendar">Calendrier</button>
+            <button type="button" data-view="list" aria-pressed="false" data-i18n="admin.view.list">Liste</button>
+          </div>
           <h2 class="toolbar-title" id="agenda-title"></h2>
         </div>
         <div class="kpis">
@@ -67,7 +74,9 @@
           <div class="kpi"><span class="kpi-label" data-i18n="admin.dayCount">Rendez-vous</span><span class="kpi-value" id="kpi-day-count">—</span></div>
           <div class="kpi"><span class="kpi-label" data-i18n="admin.dayCancelled">Annulés</span><span class="kpi-value" id="kpi-day-cancelled">—</span></div>
         </div>
-        <div class="table-wrap">
+        <div id="planner" class="planner"></div>
+        <p id="planner-note" class="note" hidden></p>
+        <div class="table-wrap" id="agenda-list" hidden>
           <table class="table agenda-table">
             <thead><tr>
               <th data-i18n="admin.col.time">Heure</th>
@@ -81,6 +90,8 @@
             </tr></thead>
             <tbody id="agenda-body"></tbody>
           </table>
+        </div>
+          </div>
         </div>
       </div>
 
@@ -150,6 +161,20 @@
       </div>
     </section>
   </main>
+
+  <dialog id="appt-dialog" class="appt-dialog">
+    <div class="appt-dialog-head">
+      <span class="appt-swatch" id="appt-swatch"></span>
+      <div>
+        <p class="appt-dialog-time" id="appt-time"></p>
+        <h3 id="appt-client"></h3>
+      </div>
+      <button type="button" class="icon-btn" id="appt-close" data-i18n-aria="admin.close">×</button>
+    </div>
+    <dl class="appt-details" id="appt-details"></dl>
+    <div class="appt-contact" id="appt-contact"></div>
+    <div class="appt-actions" id="appt-actions"></div>
+  </dialog>
 
   <script src="/js/i18n.js"></script>
   <script src="/js/admin.js"></script>

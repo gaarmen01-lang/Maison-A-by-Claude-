@@ -355,6 +355,115 @@ body.admin { background: var(--ivory); font-size: 16px; }
 /* ---------- éléments propres au mobile, masqués par défaut ---------- */
 .tab-icon, .tab-short, .date-short { display: none; }
 
+/* ---------- Admin : calendrier façon planning ---------- */
+.agenda-layout { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 24px; align-items: start; }
+.agenda-main { min-width: 0; }
+
+.mini-cal {
+  position: sticky; top: 96px; background: var(--ink); color: var(--ivory);
+  padding: 18px 16px 20px; border-radius: 4px;
+}
+.mini-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.mini-head strong { font-family: var(--serif); font-weight: 400; font-size: 1.25rem; text-transform: capitalize; }
+.mini-nav { background: none; border: 0; color: var(--gold); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px 2px; text-align: center; }
+.mini-dow { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: #9b8f82; padding-bottom: 4px; }
+.mini-day {
+  position: relative; aspect-ratio: 1; border: 0; border-radius: 50%; background: none; cursor: pointer;
+  color: var(--ivory); font: 400 .82rem var(--sans);
+}
+.mini-day:hover { background: rgba(255, 255, 255, .08); }
+.mini-day.is-closed { color: #6f665d; }
+.mini-day.is-today { box-shadow: inset 0 0 0 1px var(--gold); }
+.mini-day.is-selected { background: var(--gold); color: var(--ink); font-weight: 500; }
+.mini-day.has-appts::after {
+  content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--gold);
+}
+.mini-day.is-selected.has-appts::after { background: var(--ink); }
+
+.view-switch { display: flex; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.view-switch button {
+  background: none; border: 0; padding: 9px 14px; cursor: pointer; font: 400 .74rem var(--sans);
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.view-switch button[aria-pressed="true"] { background: var(--ink); color: var(--ivory); }
+
+.planner { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.planner-head, .planner-body { display: grid; grid-template-columns: 56px repeat(var(--cols, 2), minmax(0, 1fr)); }
+.planner-head { border-bottom: 1px solid var(--line); background: var(--ivory); }
+.planner-staff { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-left: 1px solid var(--line); min-width: 0; }
+.staff-avatar {
+  flex: 0 0 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ink); color: var(--gold); font: italic 400 1.2rem/1 var(--serif);
+}
+.staff-text { display: flex; flex-direction: column; min-width: 0; }
+.staff-text strong { font-weight: 500; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.staff-text small { color: var(--muted); font-size: .76rem; }
+
+.planner-body { position: relative; }
+.planner-axis { position: relative; }
+.planner-axis span {
+  position: absolute; right: 8px; transform: translateY(-50%); font-size: .72rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; background: var(--paper); padding: 0 2px;
+}
+.planner-axis span:first-child { transform: none; margin-top: 4px; }
+.planner-col {
+  position: relative; border-left: 1px solid var(--line); cursor: crosshair;
+  background-image:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 216, 203, .45) 1px, transparent 1px);
+  background-size: 100% var(--hour-h), 100% calc(var(--hour-h) / 2);
+}
+.planner-col.is-closed { background-color: rgba(239, 231, 220, .55); }
+.planner-off {
+  position: absolute; left: 0; right: 0; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(239, 231, 220, .7) 0 6px, rgba(239, 231, 220, .35) 6px 12px);
+}
+.planner-ghost {
+  position: absolute; left: 4px; right: 4px; border: 1px dashed var(--gold); border-radius: 4px;
+  color: var(--gold-dark); font-size: .74rem; padding: 4px 8px; pointer-events: none; background: rgba(169, 132, 79, .06);
+}
+.planner-appt {
+  position: absolute; left: 4px; right: 4px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 6px 9px; overflow: hidden; text-align: left; cursor: pointer;
+  border: 0; border-left: 4px solid var(--appt); border-radius: 4px;
+  background: color-mix(in srgb, var(--appt) 42%, #fff); color: var(--ink); font-family: var(--sans);
+  box-shadow: 0 1px 2px rgba(29, 26, 23, .08); transition: transform .15s, box-shadow .15s;
+}
+.planner-appt:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(29, 26, 23, .14); z-index: 2; }
+.planner-appt .appt-time { font-size: .7rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.planner-appt .appt-client { font-size: .86rem; font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.planner-appt .appt-service { font-size: .76rem; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.planner-appt .appt-note { font-size: .72rem; font-style: italic; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.planner-appt.is-short { flex-direction: row; align-items: center; gap: 6px; padding: 2px 8px; }
+.planner-appt.is-short .appt-service, .planner-appt.is-short .appt-note { display: none; }
+.planner-now { position: absolute; left: 56px; right: 0; height: 2px; background: #c0392b; pointer-events: none; z-index: 3; }
+.planner-now::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #c0392b; }
+.planner-closed { margin: 0; padding: 10px 16px; background: var(--ink); color: var(--ivory); font-size: .85rem; text-align: center; }
+
+.appt-dialog {
+  width: min(440px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 6px;
+  background: var(--paper); color: var(--ink); box-shadow: 0 24px 60px rgba(29, 26, 23, .3);
+}
+.appt-dialog::backdrop { background: rgba(29, 26, 23, .45); }
+.appt-dialog-head { display: flex; gap: 14px; align-items: flex-start; padding: 22px 22px 14px; border-bottom: 1px solid var(--line); }
+.appt-dialog-head > div { flex: 1; min-width: 0; }
+.appt-dialog-head h3 { margin: 2px 0 0; font-size: 1.6rem; }
+.appt-swatch { flex: 0 0 6px; align-self: stretch; border-radius: 3px; }
+.appt-dialog-time { margin: 0; font-size: .8rem; color: var(--muted); text-transform: capitalize; }
+.appt-details { display: grid; grid-template-columns: auto 1fr; gap: 10px 18px; margin: 0; padding: 18px 22px; }
+.appt-details dt { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.appt-details dd { margin: 0; }
+.appt-contact { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 18px; }
+.appt-contact .btn { text-transform: none; letter-spacing: .02em; font-size: .82rem; }
+.appt-actions { display: flex; justify-content: flex-end; gap: 22px; padding: 14px 22px 18px; border-top: 1px solid var(--line); }
+
+@media (max-width: 1080px) {
+  .agenda-layout { grid-template-columns: 1fr; }
+  .mini-cal { display: none; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
   .main-nav { display: none; }
@@ -501,4 +610,18 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .table tr.is-empty { display: none; }
 
   .admin-form .btn { width: 100%; }
+}
+
+@media (max-width: 720px) {
+  .tab-panel[data-panel="agenda"] .view-switch { grid-column: 1 / -1; order: 7; }
+  .view-switch button { flex: 1; min-height: 40px; }
+  .planner-head, .planner-body { grid-template-columns: 42px repeat(var(--cols, 2), minmax(0, 1fr)); }
+  .planner-now { left: 42px; }
+  .planner-staff { padding: 10px 8px; gap: 8px; }
+  .staff-avatar { flex-basis: 30px; height: 30px; font-size: 1rem; }
+  .planner-axis span { font-size: .64rem; right: 4px; }
+  .planner-appt { left: 2px; right: 2px; padding: 4px 6px; }
+  .planner-col { cursor: pointer; }
+  .planner-ghost { display: none; }
+  .appt-actions { justify-content: space-between; }
 }
