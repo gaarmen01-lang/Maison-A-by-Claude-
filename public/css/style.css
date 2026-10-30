@@ -240,7 +240,8 @@ body.admin { background: var(--ivory); font-size: 16px; }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
 .toolbar input[type="date"] { width: auto; padding: 9px 12px; }
-.toolbar-title { font-size: 1.7rem; margin: 0 0 0 12px; text-transform: capitalize; }
+.toolbar-title { font-size: 1.7rem; margin: 0 0 0 12px; }
+.toolbar-title::first-letter { text-transform: uppercase; }
 .icon-btn {
   width: 40px; height: 40px; border: 1px solid var(--line); background: var(--paper); cursor: pointer;
   font-size: 1.3rem; line-height: 1; color: var(--ink); border-radius: var(--radius);
@@ -649,4 +650,39 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .agenda-table .actions .link-btn + .link-btn { margin-left: 0; }
   .agenda-table .status { letter-spacing: .02em; font-size: .7rem; }
   .agenda-table .actions .link-btn { letter-spacing: .06em; font-size: .7rem; }
+}
+
+/* ---------- Admin : vue semaine ---------- */
+.planner-head.is-week { align-items: stretch; }
+.week-day {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 4px;
+  border: 0; border-left: 1px solid var(--line); background: none; cursor: pointer; font-family: var(--sans); color: var(--ink);
+}
+.week-day:hover { background: var(--cream); }
+.week-dow { font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.week-num { font: 400 1.5rem/1.1 var(--serif); }
+.week-day small { font-size: .68rem; color: var(--muted); white-space: nowrap; }
+.week-day.is-today .week-num {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--gold); color: var(--ink);
+}
+.week-col.is-today { background-color: rgba(169, 132, 79, .05); }
+.planner-appt.is-compact { padding: 3px 5px; gap: 0; }
+.planner-appt.is-compact .appt-time { font-size: .62rem; }
+.planner-appt.is-compact .appt-client { font-size: .72rem; }
+.planner-appt.is-compact .appt-service { font-size: .64rem; }
+.week-legend { display: flex; gap: 20px; justify-content: flex-end; margin: 0; padding: 8px 14px; font-size: .74rem; color: var(--muted); border-top: 1px solid var(--line); }
+.mini-day.is-in-week:not(.is-selected) { background: rgba(169, 132, 79, .22); border-radius: 4px; }
+.view-switch { flex-wrap: nowrap; }
+
+@media (max-width: 720px) {
+  .week-day { padding: 8px 0; }
+  .week-dow { font-size: .56rem; letter-spacing: .04em; }
+  .week-num { font-size: 1.15rem; }
+  .week-day small { display: none; }
+  .week-day.is-today .week-num { width: 26px; height: 26px; }
+  .planner-appt.is-compact { padding: 2px 3px; border-left-width: 3px; }
+  .planner-appt.is-compact .appt-time, .planner-appt.is-compact .appt-service { display: none; }
+  .planner-appt.is-compact .appt-client { display: none; }
+  .week-legend { justify-content: center; }
 }

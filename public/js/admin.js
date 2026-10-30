@@ -107,9 +107,9 @@
   }
 
   $('agenda-date').addEventListener('change', e => e.target.value && setAgendaDate(e.target.value));
-  $('day-prev').addEventListener('click', () => setAgendaDate(addDays(agendaDate, -1)));
-  $('day-next').addEventListener('click', () => setAgendaDate(addDays(agendaDate, 1)));
-  $('day-today').addEventListener('click', () => setAgendaDate(today));
+  // En vue semaine, les flèches avancent d'une semaine.
+  $('day-prev').addEventListener('click', () => setAgendaDate(addDays(agendaDate, agendaView === 'week' ? -7 : -1)));
+  $('day-next').addEventListener('click', () => setAgendaDate(addDays(agendaDate, agendaView === 'week' ? 7 : 1)));
 
   function actionButton(label, cls, handler) {
     const b = el('button', { type: 'button', class: 'link-btn ' + cls, text: label });
@@ -357,6 +357,7 @@
       const date = `${month}-${String(d).padStart(2, '0')}`;
       const cls = ['mini-day'];
       if (date === agendaDate) cls.push('is-selected');
+      if (agendaView === 'week' && date >= mondayOf(agendaDate) && date <= addDays(mondayOf(agendaDate), 6)) cls.push('is-in-week');
       if (date === today) cls.push('is-today');
       if (!salon.openingHours[weekdayOf(date)]) cls.push('is-closed');
       if (busy.has(date)) cls.push('has-appts');
@@ -403,24 +404,144 @@
 
   $('agenda-stylist').addEventListener('change', () => loadAgenda());
 
+  // Lundi de la semaine contenant `date`.
+  function mondayOf(date) {
+    return addDays(date, -((weekdayOf(date) + 6) % 7));
+  }
+
   async function loadAgenda() {
-    $('agenda-title').textContent = I18n.formatDate(agendaDate);
+    const week = agendaView === 'week';
+    const from = week ? mondayOf(agendaDate) : agendaDate;
+    const to = week ? addDays(from, 6) : agendaDate;
+    $('agenda-title').textContent = week
+      ? t('admin.weekTitle', {
+        from: I18n.formatDate(from, { day: 'numeric', month: 'long' }),
+        to: I18n.formatDate(to, { day: 'numeric', month: 'long', year: 'numeric' })
+      })
+      : I18n.formatDate(agendaDate);
     const filter = $('agenda-stylist').value;
-    const { appointments: all } = await api(`/api/admin/appointments?from=${agendaDate}&to=${agendaDate}`);
+    const { appointments: all } = await api(`/api/admin/appointments?from=${from}&to=${to}`);
     const appointments = filter ? all.filter(a => a.stylist === filter) : all;
     const confirmed = appointments.filter(a => a.status === 'confirmed');
+    $('kpi-day-revenue').previousElementSibling.textContent = t(week ? 'admin.weekRevenue' : 'admin.dayRevenue');
     $('kpi-day-revenue').textContent = I18n.formatPrice(confirmed.reduce((s, a) => s + a.price, 0));
     $('kpi-day-count').textContent = confirmed.length;
     $('kpi-day-cancelled').textContent = appointments.length - confirmed.length;
 
-    $('planner').hidden = agendaView !== 'calendar';
-    $('agenda-list').hidden = agendaView !== 'list';
+    const calendar = agendaView !== 'list';
+    $('planner').hidden = !calendar;
+    $('agenda-list').hidden = calendar;
     const cancelled = appointments.length - confirmed.length;
-    $('planner-note').hidden = agendaView !== 'calendar' || !cancelled;
+    $('planner-note').hidden = !calendar || !cancelled;
     $('planner-note').textContent = t('admin.cancelledHidden', { n: cancelled });
     if (agendaView === 'calendar') renderPlanner(confirmed, filter);
+    else if (week) renderWeek(confirmed, filter, from);
     else renderList(appointments);
     renderMiniCal();
+  }
+
+  // Vue semaine : une colonne par jour ; sans filtre, chaque jour est partagé en une bande par coiffeuse.
+  function renderWeek(appointments, filter, monday) {
+    const planner = $('planner');
+    const staff = filter ? salon.staff.filter(s => s.id === filter) : salon.staff;
+    const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+    let start = 24 * 60;
+    let end = 0;
+    days.forEach(d => {
+      const h = salon.openingHours[weekdayOf(d)];
+      if (h) {
+        start = Math.min(start, Math.floor(toMinutes(h[0]) / 60) * 60);
+        end = Math.max(end, Math.ceil(toMinutes(h[1]) / 60) * 60);
+      }
+    });
+    if (start >= end) { start = 9 * 60; end = 19 * 60; }
+    appointments.forEach(a => {
+      start = Math.min(start, Math.floor(toMinutes(a.time) / 60) * 60);
+      end = Math.max(end, Math.ceil((toMinutes(a.time) + a.duration) / 60) * 60);
+    });
+    const mobile = window.matchMedia('(max-width: 720px)').matches;
+    const ppm = mobile ? 1 : 1.2;
+    const height = (end - start) * ppm;
+    planner.style.setProperty('--cols', 7);
+    planner.style.setProperty('--hour-h', 60 * ppm + 'px');
+
+    const head = el('div', { class: 'planner-head is-week' }, [
+      el('div', { class: 'planner-corner' }),
+      ...days.map(d => {
+        const own = appointments.filter(a => a.date === d);
+        const btn = el('button', { type: 'button', class: 'week-day' + (d === today ? ' is-today' : '') }, [
+          el('span', { class: 'week-dow', text: I18n.formatDate(d, { weekday: 'short' }).replace('.', '') }),
+          el('strong', { class: 'week-num', text: String(Number(d.slice(8))) }),
+          el('small', { text: own.length ? `${own.length} · ${I18n.formatPrice(own.reduce((s, a) => s + a.price, 0))}` : '—' })
+        ]);
+        // Clic sur l'en-tête : ouvre ce jour en vue « Jour ».
+        btn.addEventListener('click', () => {
+          agendaView = 'calendar';
+          document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === 'calendar')));
+          setAgendaDate(d);
+        });
+        return btn;
+      })
+    ]);
+
+    const axis = el('div', { class: 'planner-axis' });
+    axis.style.height = height + 'px';
+    for (let m = start; m < end; m += 60) {
+      const label = el('span', { text: toTime(m) });
+      label.style.top = (m - start) * ppm + 'px';
+      axis.append(label);
+    }
+
+    const columns = days.map(d => {
+      const hours = salon.openingHours[weekdayOf(d)];
+      const col = el('div', { class: 'planner-col week-col' + (hours ? '' : ' is-closed') + (d === today ? ' is-today' : '') });
+      col.style.height = height + 'px';
+      if (hours) {
+        const off = (edge, minutes) => {
+          const zone = el('div', { class: 'planner-off' });
+          zone.style[edge] = '0';
+          zone.style.height = minutes * ppm + 'px';
+          col.append(zone);
+        };
+        if (toMinutes(hours[0]) > start) off('top', toMinutes(hours[0]) - start);
+        if (end > toMinutes(hours[1])) off('bottom', end - toMinutes(hours[1]));
+      }
+      const laneWidth = 100 / staff.length;
+      col.addEventListener('click', e => {
+        if (e.target.closest('.planner-appt')) return;
+        const rect = col.getBoundingClientRect();
+        const minutes = Math.min(end - 15, start + Math.floor((e.clientY - rect.top) / ppm / 15) * 15);
+        const lane = Math.min(staff.length - 1, Math.floor((e.clientX - rect.left) / rect.width * staff.length));
+        agendaDate = d;
+        openNewAppointment(staff[lane].id, toTime(minutes));
+      });
+      appointments.filter(a => a.date === d).forEach(a => {
+        const lane = Math.max(0, staff.findIndex(s => s.id === a.stylist));
+        const block = el('button', { type: 'button', class: 'planner-appt is-compact' }, [
+          el('span', { class: 'appt-time', text: a.time }),
+          el('strong', { class: 'appt-client', text: mobile ? a.firstName : `${a.firstName} ${a.lastName}` }),
+          el('span', { class: 'appt-service', text: a.serviceName[I18n.lang] })
+        ]);
+        block.style.top = (toMinutes(a.time) - start) * ppm + 'px';
+        block.style.height = Math.max(a.duration * ppm - 2, 18) + 'px';
+        block.style.left = `calc(${lane * laneWidth}% + 2px)`;
+        block.style.width = `calc(${laneWidth}% - 4px)`;
+        block.style.right = 'auto';
+        block.style.setProperty('--appt', serviceColor(a.service));
+        block.title = `${a.time} – ${toTime(toMinutes(a.time) + a.duration)} · ${a.firstName} ${a.lastName} · ${a.serviceName[I18n.lang]} · ${stylistName(a.stylist)}`;
+        block.addEventListener('click', () => openAppointment(a));
+        col.append(block);
+      });
+      return col;
+    });
+
+    const body = el('div', { class: 'planner-body' }, [axis, ...columns]);
+    planner.replaceChildren(head, body);
+    // Légende des bandes (une par coiffeuse) quand les deux sont affichées.
+    if (staff.length > 1) {
+      planner.append(el('p', { class: 'week-legend' }, staff.map((s, i) =>
+        el('span', { text: `${i === 0 ? '◧' : '◨'} ${s.name[I18n.lang]}` }))));
+    }
   }
 
   function renderList(appointments) {
