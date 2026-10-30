@@ -625,3 +625,27 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .planner-ghost { display: none; }
   .appt-actions { justify-content: space-between; }
 }
+
+/* Vue liste de l'agenda : tout tient dans la largeur, sans défilement horizontal. */
+@media (min-width: 721px) {
+  .table-wrap:has(.agenda-table) { overflow-x: visible; }
+  .agenda-table { table-layout: fixed; }
+  .agenda-table th, .agenda-table td { padding: 12px 8px; white-space: normal; overflow-wrap: break-word; }
+  .agenda-table td.contact { overflow-wrap: anywhere; }
+  .agenda-table th { letter-spacing: .08em; font-size: .62rem; overflow-wrap: normal; }
+  .agenda-table th:nth-child(1) { width: 8%; }
+  .agenda-table th:nth-child(2) { width: 15%; }
+  .agenda-table th:nth-child(3) { width: 14%; }
+  .agenda-table th:nth-child(4) { width: 11%; }
+  .agenda-table th:nth-child(5) { width: 19%; }
+  .agenda-table th:nth-child(6) { width: 8%; }
+  .agenda-table th:nth-child(7) { width: 12%; }
+  .agenda-table th:nth-child(8) { width: 13%; }
+  .agenda-table td.stylist { white-space: normal; }
+  .agenda-table .tag { margin: 4px 0 0; display: table; }
+  .agenda-table .actions { white-space: normal; text-align: left; }
+  .agenda-table .actions .link-btn { display: inline-block; margin: 0 0 6px; }
+  .agenda-table .actions .link-btn + .link-btn { margin-left: 0; }
+  .agenda-table .status { letter-spacing: .02em; font-size: .7rem; }
+  .agenda-table .actions .link-btn { letter-spacing: .06em; font-size: .7rem; }
+}
