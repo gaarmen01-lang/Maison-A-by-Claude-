@@ -136,13 +136,20 @@
 
     <section id="horaires" class="section section-dark">
       <div class="container hours">
-        <div>
+        <div class="hours-info">
           <p class="eyebrow" data-i18n="hours.eyebrow">Nous rendre visite</p>
           <h2 data-i18n="hours.title">Horaires & adresse</h2>
-          <address data-i18n-html="hours.address">Avenue Louise 000<br>1050 Bruxelles</address>
+          <address data-i18n-html="hours.address">Graaf van Egmontstraat 12<br>2800 Malines (Mechelen)</address>
           <p class="contact-line"><a href="tel:+3220000000">+32 2 000 00 00</a><br><a href="mailto:maisona@maisona-studio.be">maisona@maisona-studio.be</a></p>
+          <dl class="hours-list" id="hours-list"></dl>
         </div>
-        <dl class="hours-list" id="hours-list"></dl>
+        <div class="map-wrap">
+          <iframe class="map" id="salon-map" title="Maison A — Graaf van Egmontstraat 12, 2800 Mechelen"
+            src="https://www.google.com/maps?q=Graaf+van+Egmontstraat+12,+2800+Mechelen,+Belgi%C3%AB&amp;hl=fr&amp;z=16&amp;output=embed"
+            loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+          <a class="btn btn-ghost map-link" target="_blank" rel="noopener"
+            href="https://www.google.com/maps/dir/?api=1&amp;destination=Graaf+van+Egmontstraat+12,+2800+Mechelen,+Belgi%C3%AB" data-i18n="hours.directions">Itinéraire</a>
+        </div>
       </div>
     </section>
   </main>

@@ -200,7 +200,15 @@ textarea { resize: vertical; }
 .success .success-email { margin-top: -1.2rem; font-size: .92rem; color: var(--gold-dark); }
 
 /* ---------- horaires ---------- */
-.hours { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.hours { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: stretch; }
+.hours-info .hours-list { margin-top: 2rem; }
+.map-wrap { display: flex; flex-direction: column; gap: 14px; min-height: 420px; }
+.map {
+  flex: 1; width: 100%; min-height: 380px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 4px;
+  background: #2a2622; filter: grayscale(.35) contrast(1.05);
+}
+.map-link { align-self: flex-start; color: var(--ivory); border-color: rgba(255, 255, 255, .4); }
+.map-link:hover { background: var(--gold); border-color: var(--gold); color: var(--ink); }
 address { font-style: normal; font-family: var(--serif); font-size: 1.5rem; margin: 1.6rem 0; }
 .contact-line a { color: #d8c9b4; text-decoration: none; }
 .contact-line a:hover { color: var(--gold); }
@@ -685,4 +693,10 @@ body.admin { background: var(--ivory); font-size: 16px; }
   .planner-appt.is-compact .appt-time, .planner-appt.is-compact .appt-service { display: none; }
   .planner-appt.is-compact .appt-client { display: none; }
   .week-legend { justify-content: center; }
+}
+
+@media (max-width: 860px) {
+  .map-wrap { min-height: 0; }
+  .map { min-height: 300px; height: 300px; flex: none; }
+  .map-link { align-self: stretch; }
 }

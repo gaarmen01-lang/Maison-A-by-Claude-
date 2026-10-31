@@ -287,6 +287,13 @@
   serviceSelect.addEventListener('change', onSelectionChange);
   form.addEventListener('input', e => e.target.classList && e.target.classList.remove('invalid'));
 
+  // Carte Google Maps dans la langue du site.
+  const map = document.getElementById('salon-map');
+  I18n.onChange(lang => {
+    const src = map.src.replace(/([?&]hl=)[a-z]+/, '$1' + lang);
+    if (src !== map.src) map.src = src;
+  });
+
   I18n.onChange(() => {
     if (!salon) return;
     renderServices();
